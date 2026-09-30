@@ -28,4 +28,13 @@ repositories = {
       "data-initiative-new-team" = "admin"
     }
   }
+
+  "test-repo-001" = {
+    description = "Test: new private repo with platform team attachment"
+    visibility  = "private"
+    topics      = ["test"]
+    teams = {
+      "platform-team" = "push"
+    }
+  }
 }
