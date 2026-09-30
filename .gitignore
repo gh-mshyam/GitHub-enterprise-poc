@@ -1,3 +1,14 @@
+# Terraform local artifacts (POC uses a local backend; state/plans/provider
+# binaries are working files, not source, and must not be committed)
+**/.terraform/
+*.tfstate
+*.tfstate.*
+tfplan.binary
+tfplan.json
+crash.log
+override.tf
+override.tf.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

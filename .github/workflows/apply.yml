@@ -1,0 +1,43 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: terraform apply -auto-approve -input=false -var-file=../repositories/example.tfvars
+
+      - name: Commit Local State
+        working-directory: terraform
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add terraform.tfstate
+          git diff --cached --quiet || git commit -m "Update terraform.tfstate after apply [skip ci]"
+          git push

@@ -1,0 +1,81 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - "repositories/**"
+      - "scripts/**"
+      - ".github/workflows/plan.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan and Risk Classification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        continue-on-error: true
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: terraform plan -input=false -no-color -var-file=../repositories/example.tfvars -out=tfplan.binary
+
+      - name: Convert Plan To JSON
+        if: steps.plan.outcome == 'success'
+        working-directory: terraform
+        run: terraform show -json tfplan.binary > tfplan.json
+
+      - name: Classify Risk Tier
+        id: risk
+        if: steps.plan.outcome == 'success'
+        run: python3 scripts/classify_risk.py terraform/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+
+      - name: Post Plan Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutcome = "${{ steps.plan.outcome }}";
+
+            let body;
+            if (planOutcome !== 'success') {
+              body = "### Terraform Plan Failed\n\nThe `terraform plan` step did not complete successfully. See the workflow run logs for details.";
+            } else if (fs.existsSync('comment_body.md')) {
+              body = fs.readFileSync('comment_body.md', 'utf8');
+            } else {
+              body = "### Terraform Plan\n\nPlan succeeded but no risk classification report was generated.";
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
