@@ -30,9 +30,9 @@ repositories = {
   }
 
   "test-repo-001" = {
-    description = "Test: new private repo with platform team attachment"
-    visibility  = "private"
-    topics      = ["test"]
+    description = "Test: public repo with platform team (Tier 1 - visibility change)"
+    visibility  = "public"
+    topics      = ["test", "public"]
     teams = {
       "platform-team" = "push"
     }
