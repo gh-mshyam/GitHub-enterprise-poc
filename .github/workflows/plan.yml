@@ -79,3 +79,9 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
+
+      - name: Auto-Merge for Tier 0
+        if: steps.risk.outputs.tier == '0' && steps.plan.outcome == 'success'
+        run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
