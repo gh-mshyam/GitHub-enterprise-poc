@@ -19,12 +19,4 @@ repositories = {
     }
   }
 
-  "phase1-test-repo" = {
-    description = "Phase 1 Test A: Create repo (Tier 0)"
-    visibility  = "private"
-    topics      = ["phase1", "test"]
-    teams = {
-      "platform-team" = "push"
-    }
-  }
 }
