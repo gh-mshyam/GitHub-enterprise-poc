@@ -18,13 +18,4 @@ repositories = {
       "platform-team" = "push"
     }
   }
-
-  "analytics-pipeline" = {
-    description = "Private analytics data pipeline service"
-    visibility  = "private"
-    topics      = ["analytics", "data-pipeline"]
-    teams = {
-      "platform-team" = "push"
-    }
-  }
 }
