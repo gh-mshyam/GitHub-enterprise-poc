@@ -18,5 +18,4 @@ repositories = {
       "platform-team" = "push"
     }
   }
-
 }
