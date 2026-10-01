@@ -117,9 +117,10 @@ git push
 
 ## State Management
 
-- `terraform/terraform.tfstate` is committed to git
+- `terraform/terraform.tfstate` is committed to git (POC only)
 - Enables workflow isolation and reproducibility
-- **Production:** Migrate to remote backend (S3 + DynamoDB or Terraform Cloud)
+- **Production:** Migrate to **S3 + DynamoDB** for locking/encryption
+- **Future Plan:** State migration to S3 backend in Phase 4
 
 ## Compliance & Audit
 
@@ -153,7 +154,7 @@ Trace any repo: `git log --all -- repositories/example.tfvars`
 
 ## Production Checklist
 
-- [ ] Update backend to S3 or Terraform Cloud
+- [ ] **Phase 4:** Migrate state backend to S3 + DynamoDB (locking, encryption)
 - [ ] Add CODEOWNERS for Tier 1 approval routing
 - [ ] Set up cost estimation for destructive operations
 - [ ] Audit existing repos via `terraform import`
