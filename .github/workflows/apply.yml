@@ -1,14 +1,7 @@
 name: Terraform Apply
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [closed]
-    branches:
-      - main
-  workflow_dispatch:
+$config
 
 permissions:
   contents: write
@@ -17,7 +10,6 @@ jobs:
   apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
 
     steps:
       - name: Checkout
@@ -28,15 +20,21 @@ jobs:
         with:
           terraform_version: "1.9.8"
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Terraform Init
         working-directory: terraform
         run: terraform init -input=false
 
       - name: Terraform Apply
+        id: apply
         working-directory: terraform
         env:
-          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
-          TF_VAR_github_owner: ${{ github.repository_owner }}
+          TF_VAR_github_token: \${{ secrets.GH_PROVISIONING_TOKEN }}
+          TF_VAR_github_owner: \${{ github.repository_owner }}
         run: terraform apply -auto-approve -input=false -parallelism=1 -var-file=../repositories/example.tfvars
 
       - name: Commit Local State
