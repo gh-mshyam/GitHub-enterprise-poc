@@ -7,8 +7,3 @@ output "repository_node_id" {
   description = "GraphQL node ID of the repository, used for branch protection resources"
   value       = github_repository.this.node_id
 }
-
-output "risk_tier" {
-  description = "Risk tier applied to this repository"
-  value       = var.risk_tier
-}
