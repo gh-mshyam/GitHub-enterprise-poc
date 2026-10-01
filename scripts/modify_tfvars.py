@@ -14,8 +14,8 @@ with open(tfvars_path, 'r') as f:
     content = f.read()
 
 if operation == 'create':
-    # Create new repository entry
-    repo_entry = f'''\n  "{repo_name}" = {{
+    # Create new repository entry with proper indentation
+    repo_block = f'''  "{repo_name}" = {{
     description = "{description}"
     visibility  = "{visibility}"
     topics      = ["service"]
@@ -24,18 +24,30 @@ if operation == 'create':
     }}
   }}'''
 
-    # Find the closing brace and insert before it
-    if content.rstrip().endswith('}'):
-        content = content.rstrip()[:-1] + ',' + repo_entry + '\n}'
-    else:
-        content = content + repo_entry
+    # Find last entry's closing brace and ensure it has a comma, then add new entry
+    # Look for pattern of the last repo block before the closing brace
+    # Match the last "name" = { ... } block
+    pattern = r'(  "[^"]+"\s*=\s*\{[^}]*teams\s*=\s*\{[^}]*\}\s*\})(\s*\n\})'
+    match = re.search(pattern, content, re.DOTALL)
+
+    if match:
+        last_entry = match.group(1)
+        closing = match.group(2)
+        # Add comma to last entry if it doesn't have one
+        if not last_entry.rstrip().endswith(','):
+            last_entry_with_comma = last_entry + ','
+        else:
+            last_entry_with_comma = last_entry
+        # Replace with new entry added
+        replacement = last_entry_with_comma + '\n' + repo_block + closing
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 
 elif operation == 'delete':
     # Remove repository entry
-    pattern = f'\n\s*"{repo_name}"\s*=\s*\{{[^}}]*?teams\s*=\s*\{{[^}}]*?\}}\s*}},?'
+    pattern = f'  "{repo_name}"\s*=\s*\{{[^}}]*?teams\s*=\s*\{{[^}}]*?\}}\s*}},?'
     content = re.sub(pattern, '', content, flags=re.DOTALL)
-    # Clean up any trailing comma before closing brace
-    content = re.sub(r',(\s*\n\s*\})', r'\1', content)
+    # Clean up double commas or trailing commas before closing brace
+    content = re.sub(r',(\s*\n\})', r'\1', content)
 
 with open(tfvars_path, 'w') as f:
     f.write(content)
