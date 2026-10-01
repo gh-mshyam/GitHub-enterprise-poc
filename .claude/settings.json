@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Bash(git *)",
+      "Bash(terraform *)",
+      "Bash(jq *)",
+      "Bash(echo *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(cd *)",
+      "Bash(pwd *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash",
+      "Read",
+      "Write",
+      "Edit"
+    ]
+  }
+}
