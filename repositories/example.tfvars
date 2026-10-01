@@ -25,6 +25,14 @@ repositories = {
     teams = {
       "platform-team" = "push"
     }
+  },
+  "test-phase3-repo" = {
+    description = "Phase 3 test - business user workflow"
+    visibility  = "private"
+    topics      = ["service"]
+    teams = {
+      "platform-team" = "push"
+    }
   }
 
 }
