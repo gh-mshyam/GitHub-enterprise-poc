@@ -21,23 +21,26 @@ if operation == 'create':
     topics      = ["service"]
   }}'''
 
-    # Find last entry's closing brace and ensure it has a comma, then add new entry
-    # Look for pattern of the last repo block before the closing brace
-    # Match the last "name" = { ... } block
-    pattern = r'(  "[^"]+"\s*=\s*\{[^}]*\}\s*)(\n\})'
-    match = re.search(pattern, content, re.DOTALL)
-
-    if match:
-        last_entry = match.group(1)
-        closing = match.group(2)
-        # Add comma to last entry if it doesn't have one
-        if not last_entry.rstrip().endswith(','):
-            last_entry_with_comma = last_entry + ','
-        else:
-            last_entry_with_comma = last_entry
-        # Replace with new entry added
-        replacement = last_entry_with_comma + '\n' + repo_block + closing
-        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+    # Check if repositories block is empty
+    empty_pattern = r'repositories\s*=\s*\{\s*\n\}'
+    if re.search(empty_pattern, content):
+        # Replace empty block with new repo
+        content = re.sub(empty_pattern, f'repositories = {{\n{repo_block}\n}}', content, flags=re.DOTALL)
+    else:
+        # Find last entry's closing brace and add new entry
+        pattern = r'(  "[^"]+"\s*=\s*\{[^}]*\}\s*)(\n\})'
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            last_entry = match.group(1)
+            closing = match.group(2)
+            # Add comma to last entry if it doesn't have one
+            if not last_entry.rstrip().endswith(','):
+                last_entry_with_comma = last_entry + ','
+            else:
+                last_entry_with_comma = last_entry
+            # Replace with new entry added
+            replacement = last_entry_with_comma + '\n' + repo_block + closing
+            content = re.sub(pattern, replacement, content, flags=re.DOTALL)
 
 elif operation == 'delete':
     # Remove repository entry
