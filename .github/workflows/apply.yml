@@ -1,11 +1,10 @@
 name: Terraform Apply
 
 on:
+  workflow_run:
+    workflows: ['Terraform Plan']
+    types: [completed]
   push:
-    branches:
-      - main
-  pull_request:
-    types: [closed]
     branches:
       - main
   workflow_dispatch:
@@ -17,7 +16,6 @@ jobs:
   apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
 
     steps:
       - name: Checkout
