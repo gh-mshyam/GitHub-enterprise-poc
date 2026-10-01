@@ -19,15 +19,12 @@ if operation == 'create':
     description = "{description}"
     visibility  = "{visibility}"
     topics      = ["service"]
-    teams = {{
-      "{team}" = "push"
-    }}
   }}'''
 
     # Find last entry's closing brace and ensure it has a comma, then add new entry
     # Look for pattern of the last repo block before the closing brace
     # Match the last "name" = { ... } block
-    pattern = r'(  "[^"]+"\s*=\s*\{[^}]*teams\s*=\s*\{[^}]*\}\s*\})(\s*\n\})'
+    pattern = r'(  "[^"]+"\s*=\s*\{[^}]*\}\s*)(\n\})'
     match = re.search(pattern, content, re.DOTALL)
 
     if match:
@@ -44,7 +41,7 @@ if operation == 'create':
 
 elif operation == 'delete':
     # Remove repository entry
-    pattern = f'  "{repo_name}"\s*=\s*\{{[^}}]*?teams\s*=\s*\{{[^}}]*?\}}\s*}},?'
+    pattern = f'  "{repo_name}"\s*=\s*\{{[^}}]*?\}},?'
     content = re.sub(pattern, '', content, flags=re.DOTALL)
     # Clean up double commas or trailing commas before closing brace
     content = re.sub(r',(\s*\n\})', r'\1', content)
