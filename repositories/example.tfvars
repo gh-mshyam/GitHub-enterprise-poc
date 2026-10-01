@@ -1,7 +1,7 @@
 github_owner = "gh-mshyam"
 
 repositories = {
-  "enterprise-test-repo-v2" = {
+  "enterprise-test-repo" = {
     description = "Test repo for testing the engineer persona for reproduction"
     visibility  = "private"
     topics      = ["test", "engineering"]
