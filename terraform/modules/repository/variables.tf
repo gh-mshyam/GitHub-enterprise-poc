@@ -51,19 +51,3 @@ variable "topics" {
   default     = []
 }
 
-variable "risk_tier" {
-  description = "Risk tier for this repository: \"0\" (standard) or \"1\" (higher risk, stricter branch protection)"
-  type        = string
-  default     = "0"
-
-  validation {
-    condition     = contains(["0", "1"], var.risk_tier)
-    error_message = "risk_tier must be \"0\" or \"1\"."
-  }
-}
-
-variable "teams" {
-  description = "Map of team slug to permission level (pull, triage, push, maintain, admin)"
-  type        = map(string)
-  default     = {}
-}
