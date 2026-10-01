@@ -22,7 +22,7 @@ on:
           - private
           - internal
       team:
-        description: "Team to attach (create only, e.g., platform-team)"
+        description: "Team to attach (create only)"
         required: false
         type: string
       description:
@@ -40,37 +40,29 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       valid: ${{ steps.validate.outputs.valid }}
-      error: ${{ steps.validate.outputs.error }}
     steps:
       - name: Validate repo_name
         id: validate
         run: |
           REPO_NAME="${{ inputs.repo_name }}"
-
-          # Check regex: ^[a-z0-9][a-z0-9-]*$
           if [[ ! $REPO_NAME =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-            echo "valid=false" >> $GITHUB_OUTPUT
-            echo "error=Invalid repository name. Must start with lowercase letter/digit and contain only lowercase letters, digits, and hyphens." >> $GITHUB_OUTPUT
+            echo "Invalid repository name" >&2
             exit 1
           fi
-
-          # Check for create-only fields
           if [[ "${{ inputs.operation }}" == "create" ]]; then
-            if [[ -z "${{ inputs.visibility }}" ]] || [[ -z "${{ inputs.team }}" ]] || [[ -z "${{ inputs.description }}" ]]; then
-              echo "valid=false" >> $GITHUB_OUTPUT
-              echo "error=For create operation, visibility, team, and description are required." >> $GITHUB_OUTPUT
+            if [[ -z "${{ inputs.visibility }}" ]] || [[ -z "${{ inputs.team }}" ]]; then
+              echo "For create operation, visibility and team are required" >&2
               exit 1
             fi
           fi
-
           echo "valid=true" >> $GITHUB_OUTPUT
-          echo "error=" >> $GITHUB_OUTPUT
 
   modify:
-    name: Modify Repository Configuration
+    name: Modify Configuration and Create PR
     runs-on: ubuntu-latest
     needs: validate
-    if: needs.validate.outputs.valid == 'true'
+    outputs:
+      pr_number: ${{ steps.create_pr.outputs.pr_number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,99 +79,31 @@ jobs:
           VISIBILITY: ${{ inputs.visibility }}
           TEAM: ${{ inputs.team }}
           DESCRIPTION: ${{ inputs.description }}
-        run: |
-          python3 << 'PYTHON_EOF'
-          import os
-          import re
-
-          operation = os.environ.get('OPERATION')
-          repo_name = os.environ.get('REPO_NAME')
-          visibility = os.environ.get('VISIBILITY', 'private')
-          team = os.environ.get('TEAM', 'platform-team')
-          description = os.environ.get('DESCRIPTION', f'Repository: {repo_name}')
-
-          tfvars_path = 'repositories/example.tfvars'
-
-          with open(tfvars_path, 'r') as f:
-            content = f.read()
-
-          if operation == 'create':
-            # Create new repository entry
-            repo_entry = f'''
-  "{repo_name}" = {{
-    description = "{description}"
-    visibility  = "{visibility}"
-    topics      = ["service"]
-    teams = {{
-      "{team}" = "push"
-    }}
-  }}'''
-
-            # Find the last repository entry and append after it
-            # Match pattern: "name" = { ... }
-            pattern = r'(\s*"[^"]+"\s*=\s*\{[^}]*teams\s*=\s*\{[^}]*\}\s*\})'
-            matches = list(re.finditer(pattern, content, re.DOTALL))
-
-            if matches:
-              last_match = matches[-1]
-              insert_pos = last_match.end()
-              content = content[:insert_pos] + ',' + repo_entry + content[insert_pos:]
-            else:
-              # Fallback: append before closing brace
-              content = content.replace('}', repo_entry + '\n}', 1)
-
-          elif operation == 'delete':
-            # Remove repository entry
-            pattern = f'\n\s*"{repo_name}"\s*=\s*\{{[^}}]*teams\s*=\s*\{{[^}}]*\}}\s*\}}[,]?'
-            content = re.sub(pattern, '', content, flags=re.DOTALL)
-            # Clean up any double commas
-            content = re.sub(r',(\s*\n\s*\})', r'\1', content)
-
-          with open(tfvars_path, 'w') as f:
-            f.write(content)
-
-          print(f"Modified repositories/example.tfvars for {operation}: {repo_name}")
-          PYTHON_EOF
+        run: python3 scripts/modify_tfvars.py
 
       - name: Create PR
-        id: pr
+        id: create_pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPERATION: ${{ inputs.operation }}
-          REPO_NAME: ${{ inputs.repo_name }}
         run: |
           BRANCH="ops/${{ inputs.operation }}-${{ inputs.repo_name }}-$(date +%s)"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git checkout -b "$BRANCH"
           git add repositories/example.tfvars
-          git commit -m "[${{ inputs.operation }}] Repository: ${{ inputs.repo_name }}"
+          git commit -m "[${{ inputs.operation | upper }}] Repository: ${{ inputs.repo_name }}"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
             --title "[${{ inputs.operation | upper }}] ${{ inputs.repo_name }}" \
-            --body "**Operation:** ${{ inputs.operation }}\n**Repository:** ${{ inputs.repo_name }}\n**Description:** ${{ inputs.description }}\n**Team:** ${{ inputs.team }}\n**Visibility:** ${{ inputs.visibility }}" \
-            --base main \
-            --head "$BRANCH")
+            --body "Operation: ${{ inputs.operation }}\nRepository: ${{ inputs.repo_name }}\nVisibility: ${{ inputs.visibility }}\nTeam: ${{ inputs.team }}" \
+            --base main --head "$BRANCH")
 
-          # Extract PR number from URL
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K[0-9]+')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
-      - name: Store PR Number
-        run: echo "${{ steps.pr.outputs.pr_number }}" > pr_number.txt
-
-      - name: Upload PR Number
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr-info
-          path: pr_number.txt
-
-  classify-and-merge:
-    name: Classify Risk and Auto-Merge
+  apply-and-merge:
+    name: Terraform Plan, Classify, and Auto-Merge
     runs-on: ubuntu-latest
     needs: modify
     if: success()
@@ -188,17 +112,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download PR Info
-        uses: actions/download-artifact@v4
-        with:
-          name: pr-info
-
-      - name: Read PR Number
-        id: read_pr
-        run: |
-          PR_NUMBER=$(cat pr_number.txt)
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -223,38 +136,38 @@ jobs:
           TF_VAR_github_owner: ${{ github.repository_owner }}
         run: terraform plan -input=false -no-color -var-file=../repositories/example.tfvars -out=tfplan.binary
 
-      - name: Convert Plan To JSON
+      - name: Convert Plan to JSON
         if: steps.plan.outcome == 'success'
         working-directory: terraform
         run: terraform show -json tfplan.binary > tfplan.json
 
-      - name: Classify Risk Tier
+      - name: Classify Risk
         id: risk
         if: steps.plan.outcome == 'success'
         run: python3 scripts/classify_risk.py terraform/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
-      - name: Comment on PR
+      - name: Post Comment
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const prNumber = parseInt(fs.readFileSync('pr_number.txt', 'utf8').trim());
+            const pr_number = ${{ needs.modify.outputs.pr_number }};
             const planOutcome = "${{ steps.plan.outcome }}";
 
             let body;
             if (planOutcome !== 'success') {
-              body = "### Terraform Plan Failed\n\nThe `terraform plan` step did not complete successfully. See the workflow run logs for details.";
+              body = "### Terraform Plan Failed\n\nSee workflow logs for details.";
             } else if (fs.existsSync('comment_body.md')) {
               body = fs.readFileSync('comment_body.md', 'utf8');
             } else {
-              body = "### Terraform Plan\n\nPlan succeeded but no risk classification report was generated.";
+              body = "### Terraform Plan\n\nPlan succeeded.";
             }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
+              issue_number: pr_number,
               body,
             });
 
@@ -262,6 +175,4 @@ jobs:
         if: steps.risk.outputs.tier == '0' && steps.plan.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER=$(cat pr_number.txt)
-          gh pr merge "$PR_NUMBER" --auto --squash
+        run: gh pr merge ${{ needs.modify.outputs.pr_number }} --auto --squash
