@@ -91,11 +91,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add repositories/example.tfvars
-          git commit -m "[${{ inputs.operation | upper }}] Repository: ${{ inputs.repo_name }}"
+          git commit -m "[${{ inputs.operation }}] Repository: ${{ inputs.repo_name }}"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
-            --title "[${{ inputs.operation | upper }}] ${{ inputs.repo_name }}" \
+            --title "[${{ inputs.operation }}] ${{ inputs.repo_name }}" \
             --body "Operation: ${{ inputs.operation }}\nRepository: ${{ inputs.repo_name }}\nVisibility: ${{ inputs.visibility }}\nTeam: ${{ inputs.team }}" \
             --base main --head "$BRANCH")
 
