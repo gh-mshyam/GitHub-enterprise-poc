@@ -1,0 +1,127 @@
+name: Terraform Plan (Child - References Parent)
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - "infra/**"
+      - "repositories/**"
+      - "scripts/**"
+      - ".github/workflows/plan-child.yml"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan and Risk Classification (Child)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Child
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Fetch Parent Components from main@v1.0
+        run: |
+          echo "Fetching parent workflow components..."
+
+          # Fetch classify_risk.py from parent@main
+          git fetch origin main:main
+          git show origin/main:scripts/classify_risk.py > scripts/classify_risk.py.tmp
+
+          # Verify integrity (parent is immutable)
+          if [ -f scripts/classify_risk.py ]; then
+            if diff -q scripts/classify_risk.py scripts/classify_risk.py.tmp > /dev/null; then
+              echo "✓ classify_risk.py unchanged (parent immutable verified)"
+            else
+              echo "⚠️ classify_risk.py diverged from parent@main - FAIL"
+              exit 1
+            fi
+          fi
+
+          # Use parent version
+          mv scripts/classify_risk.py.tmp scripts/classify_risk.py
+          echo "✓ Parent component verified: classify_risk.py@main"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infra
+        continue-on-error: true
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: terraform plan -input=false -no-color -var-file=../repositories/example.tfvars -out=tfplan.binary
+
+      - name: Convert Plan To JSON
+        if: steps.plan.outcome == 'success'
+        working-directory: infra
+        run: terraform show -json tfplan.binary > tfplan.json
+
+      - name: Classify Risk Tier (Using Parent Script)
+        id: risk
+        if: steps.plan.outcome == 'success'
+        run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+
+      - name: Check CODEOWNERS
+        id: codeowners
+        if: steps.plan.outcome == 'success'
+        run: python3 scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
+
+      - name: Append CODEOWNERS to Comment
+        if: steps.plan.outcome == 'success'
+        run: |
+          if [ -f codeowners_status.md ]; then
+            cat codeowners_status.md >> comment_body.md
+          fi
+
+      - name: Post Plan Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planOutcome = "${{ steps.plan.outcome }}";
+
+            let body;
+            if (planOutcome !== 'success') {
+              body = "### Terraform Plan Failed\n\nThe `terraform plan` step did not complete successfully. See the workflow run logs for details.";
+            } else if (fs.existsSync('comment_body.md')) {
+              body = fs.readFileSync('comment_body.md', 'utf8');
+            } else {
+              body = "### Terraform Plan\n\nPlan succeeded but no risk classification report was generated.";
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Auto-Merge for Tier 0
+        if: steps.risk.outputs.tier == '0' && steps.plan.outcome == 'success'
+        run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# CHILD WORKFLOW
+# References parent plan workflow from main@v1.0
+# Fetches and verifies: classify_risk.py (immutable from parent)

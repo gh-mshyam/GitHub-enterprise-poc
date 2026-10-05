@@ -1,0 +1,52 @@
+name: Terraform Apply (Child - References Parent)
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    name: Terraform Apply (Child)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request_target' && github.event.pull_request.merged == true) || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout Child
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: infra
+        env:
+          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: terraform apply -auto-approve -input=false -parallelism=1 -var-file=../repositories/example.tfvars
+
+      - name: Commit Local State
+        working-directory: infra
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f terraform.tfstate
+          git diff --cached --quiet || git commit -m "Update terraform.tfstate after apply [skip ci]"
+          git push
+
+# CHILD WORKFLOW
+# References parent apply workflow from main@v1.0
+# Uses governance rules and logic from parent
