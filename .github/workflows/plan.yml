@@ -56,6 +56,18 @@ jobs:
         if: steps.plan.outcome == 'success'
         run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
+      - name: Check CODEOWNERS
+        id: codeowners
+        if: steps.plan.outcome == 'success'
+        run: python3 scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
+
+      - name: Append CODEOWNERS to Comment
+        if: steps.plan.outcome == 'success'
+        run: |
+          if [ -f codeowners_status.md ]; then
+            cat codeowners_status.md >> comment_body.md
+          fi
+
       - name: Post Plan Comment
         if: always()
         uses: actions/github-script@v7

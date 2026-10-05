@@ -1,0 +1,15 @@
+# GitHub Repository Provisioning POC - Code Owners
+
+# Global owners - required for all changes
+* @gh-mshyam
+
+# Infrastructure changes - require infra team review
+infra/ @gh-mshyam
+.github/workflows/ @gh-mshyam
+
+# Risk classification logic - immutable, requires approval
+scripts/classify_risk.py @gh-mshyam
+
+# Governance files - immutable, require approval
+.ghdp/contracts/ @gh-mshyam
+workflow-contract.json @gh-mshyam

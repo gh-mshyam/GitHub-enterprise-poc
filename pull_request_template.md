@@ -14,6 +14,10 @@
 <!-- If you know the expected tier, indicate it -->
 - Expected Tier: **Tier 0** / **Tier 1** / **Unknown** (plan.yml will classify)
 
+**Note:** plan.yml will post a comment showing:
+- Risk classification (Tier 0 or Tier 1)
+- CODEOWNERS status (✓ assigned, ⚠️ missing, ℹ️ info)
+
 ## Testing & Validation
 
 ### Local Validation
