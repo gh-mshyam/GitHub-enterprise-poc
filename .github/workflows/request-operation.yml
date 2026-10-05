@@ -79,7 +79,7 @@ jobs:
           VISIBILITY: ${{ inputs.visibility }}
           TEAM: ${{ inputs.team }}
           DESCRIPTION: ${{ inputs.description }}
-        run: python3 scripts/modify_tfvars.py
+        run: python3 apps/scripts/modify_tfvars.py
 
       - name: Create PR
         id: create_pr
@@ -144,7 +144,7 @@ jobs:
       - name: Classify Risk
         id: risk
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+        run: python3 apps/scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
       - name: Post Comment
         if: always()

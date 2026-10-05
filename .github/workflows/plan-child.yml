@@ -7,7 +7,7 @@ on:
     paths:
       - "infra/**"
       - "repositories/**"
-      - "scripts/**"
+      - "apps/scripts/**"
       - ".github/workflows/plan-child.yml"
 
 permissions:
@@ -30,12 +30,13 @@ jobs:
           echo "Fetching parent workflow components..."
 
           # Fetch classify_risk.py from parent@main
+          mkdir -p apps/scripts
           git fetch origin main:main
-          git show origin/main:scripts/classify_risk.py > scripts/classify_risk.py.tmp
+          git show origin/main:apps/scripts/classify_risk.py > apps/scripts/classify_risk.py.tmp
 
           # Verify integrity (parent is immutable)
-          if [ -f scripts/classify_risk.py ]; then
-            if diff -q scripts/classify_risk.py scripts/classify_risk.py.tmp > /dev/null; then
+          if [ -f apps/scripts/classify_risk.py ]; then
+            if diff -q apps/scripts/classify_risk.py apps/scripts/classify_risk.py.tmp > /dev/null; then
               echo "✓ classify_risk.py unchanged (parent immutable verified)"
             else
               echo "⚠️ classify_risk.py diverged from parent@main - FAIL"
@@ -44,7 +45,7 @@ jobs:
           fi
 
           # Use parent version
-          mv scripts/classify_risk.py.tmp scripts/classify_risk.py
+          mv apps/scripts/classify_risk.py.tmp apps/scripts/classify_risk.py
           echo "✓ Parent component verified: classify_risk.py@main"
 
       - name: Setup Terraform
@@ -78,12 +79,12 @@ jobs:
       - name: Classify Risk Tier (Using Parent Script)
         id: risk
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+        run: python3 apps/scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
       - name: Check CODEOWNERS
         id: codeowners
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
+        run: python3 apps/scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
 
       - name: Append CODEOWNERS to Comment
         if: steps.plan.outcome == 'success'

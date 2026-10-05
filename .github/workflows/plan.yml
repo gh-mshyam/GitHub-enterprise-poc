@@ -7,7 +7,7 @@ on:
     paths:
       - "infra/**"
       - "repositories/**"
-      - "scripts/**"
+      - "apps/scripts/**"
       - ".github/workflows/plan.yml"
 
 permissions:
@@ -54,12 +54,12 @@ jobs:
       - name: Classify Risk Tier
         id: risk
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+        run: python3 apps/scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
       - name: Check CODEOWNERS
         id: codeowners
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
+        run: python3 apps/scripts/check_codeowners.py . "${{ steps.risk.outputs.tier }}" codeowners_status.json
 
       - name: Append CODEOWNERS to Comment
         if: steps.plan.outcome == 'success'

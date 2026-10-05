@@ -1,6 +1,12 @@
 # GitHub Enterprise Repository Provisioning POC
 
-Git-native, autonomous repository provisioning using Terraform + GitHub Actions + risk-based approval gates.
+**Production-ready architecture for autonomous repository provisioning with parent-child workflow governance.**
+
+- **Git-native** — Infrastructure as Code with audit trail
+- **Risk-based automation** — Tier 0 (auto-approve) vs Tier 1 (manual review)
+- **Parent-child workflows** — Immutable governance, scalable to 100s of repos
+- **Test-first design** — 31 unit tests + integration tests via act
+- **Enterprise-ready** — Complete governance framework with CODEOWNERS + immutability
 
 ## How It Works
 
@@ -63,7 +69,9 @@ apply.yml (on merge)
 ├── .github/workflows/
 │   ├── plan.yml
 │   ├── apply.yml
-│   └── request-operation.yml
+│   ├── request-operation.yml
+│   ├── plan-child.yml
+│   └── apply-child.yml
 ├── infra/
 │   ├── main.tf
 │   ├── variables.tf
@@ -76,12 +84,21 @@ apply.yml (on merge)
 │       └── team/ (scaffold)
 ├── repositories/
 │   └── example.tfvars
-├── scripts/
-│   ├── classify_risk.py
-│   └── modify_tfvars.py
+├── apps/
+│   ├── scripts/
+│   │   ├── classify_risk.py
+│   │   ├── check_codeowners.py
+│   │   ├── modify_tfvars.py
+│   │   └── resolve_contract.py
+│   └── tests/
+│       ├── test_classify_risk.py
+│       ├── test_codeowners.py
+│       ├── test_contract_resolution.py
+│       ├── __init__.py
+│       └── README.md
+├── .ghdp/ (governance)
 ├── gHDPL/
-├── codex/
-└── apps/
+└── codex/
 ```
 
 ## Usage
@@ -115,14 +132,14 @@ git push
 
 ## Code Principles
 
-- **Tier 0 rules** in `scripts/classify_risk.py` (line ~40-50)
-- **Tier 1 rules** in `scripts/classify_risk.py` (line ~50-60)
-- **Repo module** in `terraform/modules/repository/main.tf`
+- **Tier 0 rules** in `apps/scripts/classify_risk.py` (line ~40-50)
+- **Tier 1 rules** in `apps/scripts/classify_risk.py` (line ~50-60)
+- **Repo module** in `infra/modules/repository/main.tf`
 - **Tfvars** in `repositories/example.tfvars`
 
 ## State Management
 
-- `terraform/terraform.tfstate` is committed to git (POC only)
+- `infra/terraform.tfstate` is committed to git (POC only)
 - Enables workflow isolation and reproducibility
 - **Production:** Migrate to **S3 + DynamoDB** for locking/encryption
 - **Future Plan:** State migration to S3 backend in Phase 4
@@ -167,8 +184,163 @@ Trace any repo: `git log --all -- repositories/example.tfvars`
 - [ ] Document operational runbooks
 - [ ] Set up external audit logging
 
+## Parent-Child Workflow Architecture
+
+This POC demonstrates a **scalable governance model** where:
+- **Parent (main branch):** Immutable workflows + risk rules (v1.0 tagged)
+- **Child (develop branch):** References parent, uses parent's governance logic
+
+### Parent Components (Immutable)
+
+```
+main branch (v1.0 release)
+├── apps/scripts/classify_risk.py ← Risk rules (governance)
+├── .github/workflows/plan.yml ← Risk classification workflow
+└── .github/workflows/apply.yml ← Terraform execution workflow
+```
+
+### Child Components (Customizable)
+
+```
+develop branch
+├── .github/workflows/plan-child.yml ← Fetches parent, verifies immutability
+├── .github/workflows/apply-child.yml ← Uses parent logic
+└── repositories/example.tfvars ← Child's own repo definitions
+```
+
+### How Child Uses Parent
+
+1. **Child PR triggers** → `plan-child.yml` starts
+2. **Fetch parent components** → `git show origin/main:apps/scripts/classify_risk.py`
+3. **Verify immutability** → Checks divergence from parent@main
+4. **Execute parent logic** → Uses parent's risk classification
+5. **Result** → Tier 0 or Tier 1 classification (from parent)
+
+### Benefits
+
+✅ **Centralized governance** — 1 set of rules for 100s of repos  
+✅ **No drift** — Children always use parent's latest logic  
+✅ **Immutable enforcement** — Can't bypass governance locally  
+✅ **Versioning** — Track rule changes with semantic tags (v1.0, v1.1)  
+✅ **Scalability** — 1 parent, infinite children
+
+### For Enterprise Replication
+
+1. Create central repo (e.g., `common-workflows`)
+2. Move parent components there
+3. Child repos reference `common-workflows@main` or `common-workflows@v1.0`
+4. Update `workflow-contract.json` with parent reference
+5. All children auto-sync to latest parent rules
+
+See `.ghdp/PARENT_ARCHITECTURE.md` for detailed parent-child model.
+
+---
+
+## Testing & Validation
+
+### Unit Tests (pytest)
+
+```bash
+pytest apps/tests/ -v
+# 31 tests covering:
+# - Tier 0/1 classification (18 tests)
+# - CODEOWNERS detection (5 tests)
+# - Contract resolution (8 tests)
+```
+
+**Test matrix:**
+```
+Tier 0: private + standard name + add/modify = auto-approve
+Tier 1: delete | public | bad naming = manual review
+CODEOWNERS: present | missing | empty
+Contract: immutable component validation
+```
+
+### Integration Tests (act)
+
+```bash
+# Test parent workflows
+act pull_request -j plan
+act push -j apply
+
+# Test child workflows
+act pull_request -j plan -W .github/workflows/plan-child.yml
+act push -j apply -W .github/workflows/apply-child.yml
+```
+
+### Test Coverage
+
+| Component | Tests | Coverage |
+|-----------|-------|----------|
+| classify_risk.py | 18 | All Tier 0/1 scenarios |
+| check_codeowners.py | 5 | Present, missing, empty |
+| resolve_contract.py | 8 | Load, validate, immutability |
+| Workflows | act | Plan, apply, child references |
+
+See `apps/tests/README.md` for full test execution guide.
+
+---
+
+## Contract-Based Integration
+
+**File:** `workflow-contract.json` (defines parent-child relationship)
+
+```json
+{
+  "parent_components": {
+    "scripts": [
+      {
+        "name": "classify_risk.py",
+        "immutable": true,
+        "reason": "Core governance logic"
+      }
+    ],
+    "workflows": [
+      {"name": "plan.yml", "immutable": true},
+      {"name": "apply.yml", "immutable": true}
+    ]
+  },
+  "child_requirements": {
+    "inherit_from_parent": ["scripts/classify_risk.py"],
+    "can_override": ["scripts/modify_tfvars.py"]
+  }
+}
+```
+
+Child validates contract before execution:
+```bash
+python3 apps/scripts/resolve_contract.py
+# ✓ All immutable components present
+# ✓ Contract resolved successfully
+```
+
+---
+
+## CODEOWNERS Integration
+
+**File:** `.github/CODEOWNERS` (code ownership framework)
+
+```
+* @gh-mshyam
+infra/ @gh-mshyam
+scripts/classify_risk.py @gh-mshyam
+.ghdp/contracts/ @gh-mshyam
+```
+
+**PR Comments include:**
+- Risk tier (Tier 0 or 1)
+- CODEOWNERS status (✓ assigned, ⚠️ missing, ℹ️ info)
+
+Tier 1 PRs flag missing CODEOWNERS as concern for manual review.
+
+---
+
 ## References
 
 - [Terraform GitHub Provider](https://registry.terraform.io/providers/integrations/github/latest)
 - [GitHub Actions](https://docs.github.com/en/actions)
 - [GitHub CLI](https://cli.github.com/)
+- **Architecture docs:** `.ghdp/PARENT_ARCHITECTURE.md`
+- **Child implementation:** `.ghdp/CHILD_IMPLEMENTATION.md`
+- **Contract spec:** `workflow-contract.json`
+- **Test guide:** `tests/README.md`
