@@ -69,7 +69,9 @@ apply.yml (on merge)
 ├── .github/workflows/
 │   ├── plan.yml
 │   ├── apply.yml
-│   └── request-operation.yml
+│   ├── request-operation.yml
+│   ├── plan-child.yml
+│   └── apply-child.yml
 ├── infra/
 │   ├── main.tf
 │   ├── variables.tf
@@ -82,12 +84,21 @@ apply.yml (on merge)
 │       └── team/ (scaffold)
 ├── repositories/
 │   └── example.tfvars
-├── scripts/
-│   ├── classify_risk.py
-│   └── modify_tfvars.py
+├── apps/
+│   ├── scripts/
+│   │   ├── classify_risk.py
+│   │   ├── check_codeowners.py
+│   │   ├── modify_tfvars.py
+│   │   └── resolve_contract.py
+│   └── tests/
+│       ├── test_classify_risk.py
+│       ├── test_codeowners.py
+│       ├── test_contract_resolution.py
+│       ├── __init__.py
+│       └── README.md
+├── .ghdp/ (governance)
 ├── gHDPL/
-├── codex/
-└── apps/
+└── codex/
 ```
 
 ## Usage
@@ -121,14 +132,14 @@ git push
 
 ## Code Principles
 
-- **Tier 0 rules** in `scripts/classify_risk.py` (line ~40-50)
-- **Tier 1 rules** in `scripts/classify_risk.py` (line ~50-60)
-- **Repo module** in `terraform/modules/repository/main.tf`
+- **Tier 0 rules** in `apps/scripts/classify_risk.py` (line ~40-50)
+- **Tier 1 rules** in `apps/scripts/classify_risk.py` (line ~50-60)
+- **Repo module** in `infra/modules/repository/main.tf`
 - **Tfvars** in `repositories/example.tfvars`
 
 ## State Management
 
-- `terraform/terraform.tfstate` is committed to git (POC only)
+- `infra/terraform.tfstate` is committed to git (POC only)
 - Enables workflow isolation and reproducibility
 - **Production:** Migrate to **S3 + DynamoDB** for locking/encryption
 - **Future Plan:** State migration to S3 backend in Phase 4
@@ -183,7 +194,7 @@ This POC demonstrates a **scalable governance model** where:
 
 ```
 main branch (v1.0 release)
-├── scripts/classify_risk.py ← Risk rules (governance)
+├── apps/scripts/classify_risk.py ← Risk rules (governance)
 ├── .github/workflows/plan.yml ← Risk classification workflow
 └── .github/workflows/apply.yml ← Terraform execution workflow
 ```
@@ -200,7 +211,7 @@ develop branch
 ### How Child Uses Parent
 
 1. **Child PR triggers** → `plan-child.yml` starts
-2. **Fetch parent components** → `git show origin/main:scripts/classify_risk.py`
+2. **Fetch parent components** → `git show origin/main:apps/scripts/classify_risk.py`
 3. **Verify immutability** → Checks divergence from parent@main
 4. **Execute parent logic** → Uses parent's risk classification
 5. **Result** → Tier 0 or Tier 1 classification (from parent)
@@ -230,7 +241,7 @@ See `.ghdp/PARENT_ARCHITECTURE.md` for detailed parent-child model.
 ### Unit Tests (pytest)
 
 ```bash
-pytest tests/ -v
+pytest apps/tests/ -v
 # 31 tests covering:
 # - Tier 0/1 classification (18 tests)
 # - CODEOWNERS detection (5 tests)
@@ -266,7 +277,7 @@ act push -j apply -W .github/workflows/apply-child.yml
 | resolve_contract.py | 8 | Load, validate, immutability |
 | Workflows | act | Plan, apply, child references |
 
-See `tests/README.md` for full test execution guide.
+See `apps/tests/README.md` for full test execution guide.
 
 ---
 
@@ -298,7 +309,7 @@ See `tests/README.md` for full test execution guide.
 
 Child validates contract before execution:
 ```bash
-python3 scripts/resolve_contract.py
+python3 apps/scripts/resolve_contract.py
 # ✓ All immutable components present
 # ✓ Contract resolved successfully
 ```
