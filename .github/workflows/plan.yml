@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "terraform/**"
+      - "infra/**"
       - "repositories/**"
       - "scripts/**"
       - ".github/workflows/plan.yml"
@@ -34,12 +34,12 @@ jobs:
           python-version: "3.12"
 
       - name: Terraform Init
-        working-directory: terraform
+        working-directory: infra
         run: terraform init -input=false
 
       - name: Terraform Plan
         id: plan
-        working-directory: terraform
+        working-directory: infra
         continue-on-error: true
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
@@ -48,13 +48,13 @@ jobs:
 
       - name: Convert Plan To JSON
         if: steps.plan.outcome == 'success'
-        working-directory: terraform
+        working-directory: infra
         run: terraform show -json tfplan.binary > tfplan.json
 
       - name: Classify Risk Tier
         id: risk
         if: steps.plan.outcome == 'success'
-        run: python3 scripts/classify_risk.py terraform/tfplan.json "$GITHUB_OUTPUT" comment_body.md
+        run: python3 scripts/classify_risk.py infra/tfplan.json "$GITHUB_OUTPUT" comment_body.md
 
       - name: Post Plan Comment
         if: always()

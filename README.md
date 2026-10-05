@@ -64,19 +64,24 @@ apply.yml (on merge)
 │   ├── plan.yml
 │   ├── apply.yml
 │   └── request-operation.yml
-├── terraform/
+├── infra/
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── terraform.tfstate (committed)
-│   └── modules/repository/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
+│   └── modules/
+│       ├── repository/
+│       │   ├── main.tf
+│       │   ├── variables.tf
+│       │   └── outputs.tf
+│       └── team/ (scaffold)
 ├── repositories/
 │   └── example.tfvars
-└── scripts/
-    ├── classify_risk.py
-    └── modify_tfvars.py
+├── scripts/
+│   ├── classify_risk.py
+│   └── modify_tfvars.py
+├── gHDPL/
+├── codex/
+└── apps/
 ```
 
 ## Usage
