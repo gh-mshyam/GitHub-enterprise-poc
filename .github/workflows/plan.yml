@@ -97,3 +97,9 @@ jobs:
         run: gh pr merge ${{ github.event.pull_request.number }} --auto --squash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# PARENT WORKFLOW MARKER
+# This is a PARENT component hosted on main branch
+# Children reference this workflow via workflow-contract.json
+# DO NOT MODIFY without updating all children
+# Version: v1.0

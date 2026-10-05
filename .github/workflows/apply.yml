@@ -44,3 +44,9 @@ jobs:
           git add -f infra/terraform.tfstate
           git diff --cached --quiet || git commit -m "Update infra/terraform.tfstate after apply [skip ci]"
           git push
+
+# PARENT WORKFLOW MARKER
+# This is a PARENT component hosted on main branch
+# Children reference this workflow via workflow-contract.json
+# DO NOT MODIFY without updating all children
+# Version: v1.0

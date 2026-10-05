@@ -176,3 +176,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr merge ${{ needs.modify.outputs.pr_number }} --auto --squash
+
+# CHILD-CUSTOMIZABLE WORKFLOW
+# This workflow CAN be overridden by children via workflow-contract.json
+# Inherits: classify_risk.py, plan.yml, apply.yml from parent
+# Version: v1.0
