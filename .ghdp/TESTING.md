@@ -17,107 +17,123 @@ terraform validate
 terraform fmt -check
 
 # Plan (dry-run, no API calls)
-terraform plan -var-file=../repositories/example.tfvars -out=tfplan
+terraform plan -var-file=../repositories/repos.tfvars -out=tfplan
 terraform show tfplan
 
 # Clean up
 rm -f tfplan
 ```
 
-### Python Risk Classifier
+### Validate Configuration
 
 ```bash
-# Test classification logic
-python3 scripts/classify_risk.py <path-to-plan.json> /tmp/output.md
-
-# Check code style (if available)
-python3 -m black --check scripts/classify_risk.py
-python3 -m flake8 scripts/classify_risk.py
+# Validate tfvars files
+python3 apps/scripts/validate_tfvars.py repositories/repos.tfvars
+python3 apps/scripts/validate_tfvars.py repositories/teams.tfvars
 ```
 
-### HCL Validation
+### Python Helpers
 
 ```bash
-# Check tfvars syntax
-cd infra
-terraform validate -var-file=../repositories/example.tfvars
+# Run unit tests
+python3 -m pytest apps/tests/ -v
+
+# Check code style (if available)
+python3 -m black --check apps/scripts/
+python3 -m flake8 apps/scripts/
 ```
 
 ## GitHub Actions Testing
 
 ### Plan Workflow
-- Trigger: Create PR to main
-- Expected: plan.yml runs, posts risk classification
-- Validate: PR comment shows "Tier 0" or "Tier 1" with reasons
+- Trigger: Create PR to main with tfvars changes
+- Expected: plan.yml runs, terraform plan succeeds, posts PR comment
+- Validate: PR comment shows plan summary
 
-### Apply Workflow (Tier 0)
-- Trigger: Merge Tier 0 PR
+### Apply Workflow
+- Trigger: Merge PR to main
 - Expected: apply.yml runs, terraform apply succeeds, state committed
-- Validate: New repo appears on GitHub, terraform.tfstate updated in git
+- Validate: Resources created/updated on GitHub, terraform.tfstate updated in git
 
-### Apply Workflow (Tier 1)
-- Trigger: Manually merge Tier 1 PR
-- Expected: apply.yml runs, terraform apply succeeds
-- Validate: Repo deleted/modified on GitHub, state reflects change
+### Deploy Workflow (Manual)
+- Trigger: Manual dispatch with tfvars_file selection
+- Expected: Workflow runs plan and optionally apply
+- Validate: Resources deployed or staged for review
+
+### Import Workflow
+- Trigger: Manual dispatch with repo URL
+- Expected: Workflow validates repo and creates import PR
+- Validate: Import PR appears with repos.tfvars entry
 
 ### Request Operation Workflow
-- Trigger: Manual dispatch with create operation
+- Trigger: Manual dispatch with create/delete operation
 - Expected: Workflow creates PR with repo definition
 - Validate: PR appears with correct repo name and tfvars entry
-- Note: May fail on PR creation (Phase 4 fix); manually create PR as workaround
 
 ## Manual Testing Checklist
 
-Before releasing new workflows or changes:
+Before merging workflow changes or major refactors:
 
 - [ ] Local terraform plan completes without errors
-- [ ] Risk classifier runs without errors
-- [ ] Test repo created via manual PR (if Tier 0)
-- [ ] Test repo deleted via manual PR (if Tier 1)
+- [ ] Terraform format check passes
+- [ ] Configuration validation succeeds
+- [ ] Unit tests pass (pytest)
+- [ ] Test repo created via PR
 - [ ] State file commits cleanly
-- [ ] PR comments show correct risk tier
-- [ ] No terraform warnings
+- [ ] No terraform warnings or errors
 
 ## Testing Scenarios
 
-### Scenario 1: Create Private Repo (Tier 0)
-1. Add entry to repositories/example.tfvars
+### Scenario 1: Create Private Repository
+1. Add entry to `repositories/repos.tfvars`
 2. Create PR
-3. Verify: plan.yml posts "Tier 0 - Auto-approved"
-4. Verify: PR auto-merges
-5. Verify: apply.yml runs and repo created
-6. Delete repo manually afterward
+3. Verify: plan.yml posts terraform plan comment
+4. Verify: apply.yml applies on merge
+5. Verify: Repo appears on GitHub
+6. Clean up: Delete repo manually afterward
 
-### Scenario 2: Request Delete (Tier 1)
-1. Remove repo entry from repositories/example.tfvars
+### Scenario 2: Create Team and Assign Repos
+1. Add entry to `repositories/teams.tfvars`
 2. Create PR
-3. Verify: plan.yml posts "Tier 1 - Manual review"
-4. Verify: PR stays open (no auto-merge)
-5. Manually merge PR
-6. Verify: apply.yml runs and repo archived
+3. Verify: plan.yml shows team resource creation
+4. Verify: apply.yml applies on merge
+5. Verify: Team appears on GitHub with members
+6. Clean up: Delete team manually afterward
 
-### Scenario 3: Public Repo (Tier 1)
-1. Add entry with `visibility = "public"`
+### Scenario 3: Import Existing Repository
+1. Trigger `import-repo.yml` with GitHub repo URL
+2. Verify: Workflow validates repo access
+3. Verify: Import PR created with entry in `repositories/imports.tfvars`
+4. Merge import PR
+5. Verify: Repo is managed by Terraform
+
+### Scenario 4: Delete Repository
+1. Remove repo entry from `repositories/repos.tfvars`
 2. Create PR
-3. Verify: plan.yml posts "Tier 1 - Public visibility"
-4. Manually approve & merge
-5. Verify: apply.yml runs
+3. Verify: plan.yml shows resource destruction
+4. Merge PR
+5. Verify: apply.yml runs and repo is archived
 
 ## Continuous Integration
 
 All workflows run automatically on:
-- PR creation (plan.yml)
-- PR merge (apply.yml)
-- Manual dispatch (request-operation.yml)
+- PR creation/update (plan.yml)
+- PR merge to main (apply.yml)
+- Manual dispatch (deploy.yml, import-repo.yml, request-operation.yml)
 
 No manual CI trigger needed.
 
-## Known Issues & Workarounds
+## Troubleshooting
 
-### Issue: request-operation.yml PR creation fails
-**Workaround:** Manually create PR with same changes
+### Issue: Terraform plan fails
+**Resolution:** Check terraform syntax with `terraform validate`
 
-### Issue: Terraform state sync issues
-**Resolution:** Revert last commit, re-run apply.yml
+### Issue: GitHub API errors
+**Resolution:** 
+- Verify `GH_PROVISIONING_TOKEN` secret has `repo` and `admin:org` scopes
+- Check rate limits: `gh api rate_limit`
 
-See `.ghdp/contracts/ARCHITECTURE.md` for known limitations.
+### Issue: State file conflicts
+**Resolution:** 
+- Ensure apply.yml completes before next deployment
+- Review git log for state file changes: `git log --oneline -- infra/terraform.tfstate`

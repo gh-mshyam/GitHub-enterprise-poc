@@ -50,8 +50,8 @@ jobs:
             exit 1
           fi
           if [[ "${{ inputs.operation }}" == "create" ]]; then
-            if [[ -z "${{ inputs.visibility }}" ]] || [[ -z "${{ inputs.team }}" ]]; then
-              echo "For create operation, visibility and team are required" >&2
+            if [[ -z "${{ inputs.visibility }}" ]]; then
+              echo "For create operation, visibility is required" >&2
               exit 1
             fi
           fi
@@ -72,12 +72,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Modify tfvars
+      - name: Modify repos.tfvars
         env:
           OPERATION: ${{ inputs.operation }}
           REPO_NAME: ${{ inputs.repo_name }}
           VISIBILITY: ${{ inputs.visibility }}
-          TEAM: ${{ inputs.team }}
           DESCRIPTION: ${{ inputs.description }}
         run: python3 apps/scripts/modify_tfvars.py
 
@@ -90,13 +89,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add repositories/example.tfvars
+          git add repositories/repos.tfvars
           git commit -m "[${{ inputs.operation }}] Repository: ${{ inputs.repo_name }}"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
             --title "[${{ inputs.operation }}] ${{ inputs.repo_name }}" \
-            --body "Operation: ${{ inputs.operation }}\nRepository: ${{ inputs.repo_name }}\nVisibility: ${{ inputs.visibility }}\nTeam: ${{ inputs.team }}" \
+            --body "Operation: ${{ inputs.operation }}\nRepository: ${{ inputs.repo_name }}\nVisibility: ${{ inputs.visibility }}" \
             --base main --head "$BRANCH")
 
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K[0-9]+')
@@ -129,7 +128,7 @@ jobs:
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
-        run: terraform plan -input=false -no-color -var-file=../repositories/example.tfvars -out=tfplan.binary
+        run: terraform plan -input=false -no-color -var-file=../repositories/repos.tfvars -out=tfplan.binary
 
       - name: Convert Plan to JSON
         if: steps.plan.outcome == 'success'

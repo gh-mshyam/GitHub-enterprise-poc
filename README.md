@@ -1,346 +1,130 @@
-# GitHub Enterprise Repository Provisioning POC
+# GitHub Enterprise Repository Provisioning
 
-**Production-ready architecture for autonomous repository provisioning with parent-child workflow governance.**
+Autonomous repository and team provisioning for GitHub using Terraform. Git-native infrastructure with simple workflows.
 
-- **Git-native** — Infrastructure as Code with audit trail
-- **Risk-based automation** — Tier 0 (auto-approve) vs Tier 1 (manual review)
-- **Parent-child workflows** — Immutable governance, scalable to 100s of repos
-- **Test-first design** — 31 unit tests + integration tests via act
-- **Enterprise-ready** — Complete governance framework with CODEOWNERS + immutability
+## What Does This Do?
 
-## How It Works
+Creates and manages GitHub repositories and teams via Terraform, with two provisioning methods:
+1. **Git-native** — Edit `.tfvars` files, commit, and let workflows handle deployment
+2. **Workflow dispatch** — Use GitHub Actions UI for one-off repository operations
 
-```
-Business User Request (workflow_dispatch)
-    ↓
-request-operation.yml (create/delete repo)
-    ├─ Validate input
-    ├─ Modify repositories/example.tfvars
-    └─ Create PR
-         ↓
-plan.yml (auto-triggers on PR)
-    ├─ Run: terraform plan
-    ├─ Classify risk (Python script)
-    └─ Post decision to PR
-         ↓
-    ┌────────────────┬────────────────┐
-    ↓                ↓
- TIER 0          TIER 1
- (Safe)          (Risky)
-    ↓                ↓
-Auto-merge      Manual Approval
-    ↓                ↓
-apply.yml (on merge)
-    ├─ terraform apply
-    ├─ Create/delete repos
-    └─ Commit state
-         ↓
-✅ Done (audited in git)
-```
+## Quick Start
 
-## Risk Classification
+### For Engineers
 
-### Tier 0 (Auto-Approved)
-✅ Visibility = private  
-✅ Name matches `^[a-z0-9][a-z0-9-]*$`  
-✅ Only add/modify (no delete)  
-
-→ **Result:** Auto-merge, instant provisioning
-
-### Tier 1 (Manual Review)
-❌ Public or internal visibility  
-❌ Delete operation  
-❌ Bad naming convention  
-
-→ **Result:** PR waits for manual approval
-
-## Workflows
-
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `plan.yml` | PR to main | Terraform plan + risk classification |
-| `apply.yml` | Push to main | Execute terraform, commit state |
-| `request-operation.yml` | Manual dispatch | Business user interface (create/delete) |
-
-## Directory Structure
-
-```
-.
-├── .github/workflows/
-│   ├── plan.yml
-│   ├── apply.yml
-│   ├── request-operation.yml
-│   ├── plan-child.yml
-│   └── apply-child.yml
-├── infra/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── terraform.tfstate (committed)
-│   └── modules/
-│       ├── repository/
-│       │   ├── main.tf
-│       │   ├── variables.tf
-│       │   └── outputs.tf
-│       └── team/ (scaffold)
-├── repositories/
-│   └── example.tfvars
-├── apps/
-│   ├── scripts/
-│   │   ├── classify_risk.py
-│   │   ├── check_codeowners.py
-│   │   ├── modify_tfvars.py
-│   │   └── resolve_contract.py
-│   └── tests/
-│       ├── test_classify_risk.py
-│       ├── test_codeowners.py
-│       ├── test_contract_resolution.py
-│       ├── __init__.py
-│       └── README.md
-├── .ghdp/ (governance)
-├── gHDPL/
-└── codex/
-```
-
-## Usage
-
-### For Engineers (Git-native)
 ```bash
-# Edit repositories/example.tfvars
+# Add a new repository
+vi repositories/repos.tfvars
+# Add entry: "my-repo" = { description = "...", visibility = "private" }
+
 git checkout -b add-my-repo
-git add repositories/example.tfvars
+git add repositories/repos.tfvars
 git commit -m "Add my-repo"
 git push
 
-# Open PR → plan.yml runs → classified as Tier 0 or 1
-# If Tier 0: auto-merges → apply.yml runs → repo created
-# If Tier 1: waits for manual merge
+# Open PR → Review changes → Merge → Deployment
 ```
 
-### For Business Users (No Git Required)
-1. Go to: **Actions** → **Request Repository Operation** → **Run workflow**
-2. Fill form: operation (create/delete), repo_name, visibility, description
-3. Click **Run**
-4. System handles everything automatically
+### For Business Users
 
-## Key Principles
+1. Go to **Actions** → **Request Repository Operation** → **Run workflow**
+2. Fill the form (operation, name, visibility)
+3. Click **Run** → System creates PR and deploys
 
-1. **Git as source of truth** — all changes through PRs, auditable
-2. **Deterministic classification** — same rules always apply
-3. **Risk-based automation** — safe ops auto-approved, risky ops require review
-4. **Infrastructure as Code** — Terraform manages repos, reproducible
-5. **Local backend (POC)** — state committed to git (production: use S3/Terraform Cloud)
+## Core Workflows
 
-## Code Principles
+| Workflow | When | What |
+|----------|------|------|
+| `plan.yml` | PR to main | Terraform plan + PR comment |
+| `apply.yml` | After merge | Execute terraform, commit state |
+| `deploy.yml` | Manual trigger | Deploy specific .tfvars file |
+| `import-repo.yml` | Manual trigger | Import existing repository |
+| `request-operation.yml` | Manual trigger | Create/delete repos (no git) |
 
-- **Tier 0 rules** in `apps/scripts/classify_risk.py` (line ~40-50)
-- **Tier 1 rules** in `apps/scripts/classify_risk.py` (line ~50-60)
-- **Repo module** in `infra/modules/repository/main.tf`
-- **Tfvars** in `repositories/example.tfvars`
+## Configuration Files
+
+- **`repositories/repos.tfvars`** — New repositories to create
+- **`repositories/teams.tfvars`** — Teams and members
+- **`repositories/imports.tfvars`** — Existing repos to import and manage
+
+See `repositories/README.md` for details.
+
+## Infrastructure Modules
+
+### Repository Module
+Creates GitHub repositories with configurable options (visibility, topics, branch settings).
+
+**Usage:** Add entries to `repositories/repos.tfvars`  
+**See also:** `infra/modules/repository/README.md`
+
+### Teams Module
+Creates GitHub teams, manages members, and assigns repository access.
+
+**Usage:** Add entries to `repositories/teams.tfvars`  
+**See also:** `infra/modules/teams/README.md`
+
+## Architecture
+
+```
+repositories/*.tfvars (configuration)
+    ↓
+.github/workflows/plan.yml (terraform plan)
+    ↓
+GitHub PR (review)
+    ↓
+.github/workflows/apply.yml (terraform apply)
+    ↓
+infra/modules/{repository,teams}/ (provision)
+    ↓
+GitHub API (create/update resources)
+```
 
 ## State Management
 
-- `infra/terraform.tfstate` is committed to git (POC only)
-- Enables workflow isolation and reproducibility
-- **Production:** Migrate to **S3 + DynamoDB** for locking/encryption
-- **Future Plan:** State migration to S3 backend in Phase 4
+- Terraform state (`infra/terraform.tfstate`) is committed to git
+- Enables workflow reproducibility and auditability
+- **Production:** Migrate to S3 backend for locking/encryption
 
-## Compliance & Audit
+## Testing
 
-Every operation is fully audited:
-- ✅ PR comments show risk decision
-- ✅ Git commits track all tfvars changes
-- ✅ Terraform state diffs visible in git
-- ✅ GitHub Actions logs all steps
-
-Trace any repo: `git log --all -- repositories/example.tfvars`
-
-## Troubleshooting
-
-**PR not auto-merging (expected Tier 0)?**
-- Check plan.yml comment for actual tier and reasons
-
-**Terraform apply fails?**
-- Verify `GH_PROVISIONING_TOKEN` secret exists with `repo` scope
-- Check GitHub API rate limit: `gh api rate_limit`
-
-**Risk classification wrong?**
-- Edit `scripts/classify_risk.py` and commit
-- Re-run workflow with new rules
-
-## Known Limitations
-
-- `request-operation.yml` needs PAT with `createPullRequest` scope (GITHUB_TOKEN insufficient)
-- Team attachment not supported on personal GitHub accounts
-- Branch protection requires GitHub Pro on private repos
-- Delete operation always Tier 1 (safe default for governance)
-
-## Production Checklist
-
-- [ ] **Phase 4:** Migrate state backend to S3 + DynamoDB (locking, encryption)
-- [ ] Add CODEOWNERS for Tier 1 approval routing
-- [ ] Set up cost estimation for destructive operations
-- [ ] Audit existing repos via `terraform import`
-- [ ] Test approval workflow with real teams
-- [ ] Document operational runbooks
-- [ ] Set up external audit logging
-
-## Parent-Child Workflow Architecture
-
-This POC demonstrates a **scalable governance model** where:
-- **Parent (main branch):** Immutable workflows + risk rules (v1.0 tagged)
-- **Child (develop branch):** References parent, uses parent's governance logic
-
-### Parent Components (Immutable)
-
-```
-main branch (v1.0 release)
-├── apps/scripts/classify_risk.py ← Risk rules (governance)
-├── .github/workflows/plan.yml ← Risk classification workflow
-└── .github/workflows/apply.yml ← Terraform execution workflow
-```
-
-### Child Components (Customizable)
-
-```
-develop branch
-├── .github/workflows/plan-child.yml ← Fetches parent, verifies immutability
-├── .github/workflows/apply-child.yml ← Uses parent logic
-└── repositories/example.tfvars ← Child's own repo definitions
-```
-
-### How Child Uses Parent
-
-1. **Child PR triggers** → `plan-child.yml` starts
-2. **Fetch parent components** → `git show origin/main:apps/scripts/classify_risk.py`
-3. **Verify immutability** → Checks divergence from parent@main
-4. **Execute parent logic** → Uses parent's risk classification
-5. **Result** → Tier 0 or Tier 1 classification (from parent)
-
-### Benefits
-
-✅ **Centralized governance** — 1 set of rules for 100s of repos  
-✅ **No drift** — Children always use parent's latest logic  
-✅ **Immutable enforcement** — Can't bypass governance locally  
-✅ **Versioning** — Track rule changes with semantic tags (v1.0, v1.1)  
-✅ **Scalability** — 1 parent, infinite children
-
-### For Enterprise Replication
-
-1. Create central repo (e.g., `common-workflows`)
-2. Move parent components there
-3. Child repos reference `common-workflows@main` or `common-workflows@v1.0`
-4. Update `workflow-contract.json` with parent reference
-5. All children auto-sync to latest parent rules
-
-See `.ghdp/PARENT_ARCHITECTURE.md` for detailed parent-child model.
-
----
-
-## Testing & Validation
-
-### Unit Tests (pytest)
-
+Run unit tests for CI/CD helpers:
 ```bash
-pytest apps/tests/ -v
-# 31 tests covering:
-# - Tier 0/1 classification (18 tests)
-# - CODEOWNERS detection (5 tests)
-# - Contract resolution (8 tests)
+python3 -m pytest apps/tests/ -v
 ```
 
-**Test matrix:**
-```
-Tier 0: private + standard name + add/modify = auto-approve
-Tier 1: delete | public | bad naming = manual review
-CODEOWNERS: present | missing | empty
-Contract: immutable component validation
-```
+## Quick Reference
 
-### Integration Tests (act)
+- **Add repository:** Edit `repositories/repos.tfvars` → PR → Merge
+- **Add team:** Edit `repositories/teams.tfvars` → PR → Merge
+- **Import repo:** Use `import-repo.yml` workflow
+- **Manual operation:** Use `request-operation.yml` workflow
+- **Validate config:** `python3 apps/scripts/validate_tfvars.py repositories/repos.tfvars`
 
-```bash
-# Test parent workflows
-act pull_request -j plan
-act push -j apply
+## Key Files
 
-# Test child workflows
-act pull_request -j plan -W .github/workflows/plan-child.yml
-act push -j apply -W .github/workflows/apply-child.yml
-```
+| File | Purpose |
+|------|---------|
+| `infra/main.tf` | Terraform provider + module calls |
+| `infra/variables.tf` | Terraform input variables |
+| `infra/modules/repository/` | Repository provisioning |
+| `infra/modules/teams/` | Team provisioning |
+| `repositories/` | Configuration files |
+| `apps/scripts/` | CI/CD validation helpers |
 
-### Test Coverage
+## Documentation
 
-| Component | Tests | Coverage |
-|-----------|-------|----------|
-| classify_risk.py | 18 | All Tier 0/1 scenarios |
-| check_codeowners.py | 5 | Present, missing, empty |
-| resolve_contract.py | 8 | Load, validate, immutability |
-| Workflows | act | Plan, apply, child references |
+- **Setup & usage:** See `repositories/README.md`
+- **Repository management:** See `infra/modules/repository/README.md`
+- **Team management:** See `infra/modules/teams/README.md`
+- **Workflows:** See `.github/workflows/`
 
-See `apps/tests/README.md` for full test execution guide.
+## Support
 
----
+Check workflow logs for detailed error messages:
+1. Go to **Actions** → Select workflow run
+2. Expand failed step
+3. Review terraform output or script errors
 
-## Contract-Based Integration
-
-**File:** `workflow-contract.json` (defines parent-child relationship)
-
-```json
-{
-  "parent_components": {
-    "scripts": [
-      {
-        "name": "classify_risk.py",
-        "immutable": true,
-        "reason": "Core governance logic"
-      }
-    ],
-    "workflows": [
-      {"name": "plan.yml", "immutable": true},
-      {"name": "apply.yml", "immutable": true}
-    ]
-  },
-  "child_requirements": {
-    "inherit_from_parent": ["scripts/classify_risk.py"],
-    "can_override": ["scripts/modify_tfvars.py"]
-  }
-}
-```
-
-Child validates contract before execution:
-```bash
-python3 apps/scripts/resolve_contract.py
-# ✓ All immutable components present
-# ✓ Contract resolved successfully
-```
-
----
-
-## CODEOWNERS Integration
-
-**File:** `.github/CODEOWNERS` (code ownership framework)
-
-```
-* @gh-mshyam
-infra/ @gh-mshyam
-scripts/classify_risk.py @gh-mshyam
-.ghdp/contracts/ @gh-mshyam
-```
-
-**PR Comments include:**
-- Risk tier (Tier 0 or 1)
-- CODEOWNERS status (✓ assigned, ⚠️ missing, ℹ️ info)
-
-Tier 1 PRs flag missing CODEOWNERS as concern for manual review.
-
----
-
-## References
-
-- [Terraform GitHub Provider](https://registry.terraform.io/providers/integrations/github/latest)
-- [GitHub Actions](https://docs.github.com/en/actions)
-- [GitHub CLI](https://cli.github.com/)
-- **Architecture docs:** `.ghdp/PARENT_ARCHITECTURE.md`
-- **Child implementation:** `.ghdp/CHILD_IMPLEMENTATION.md`
-- **Contract spec:** `workflow-contract.json`
-- **Test guide:** `tests/README.md`
+For GitHub API errors, verify:
+- `GH_PROVISIONING_TOKEN` secret has `repo` and `admin:org` scopes
+- Rate limits: `gh api rate_limit`
