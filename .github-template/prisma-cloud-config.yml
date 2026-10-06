@@ -1,0 +1,34 @@
+# Prisma Cloud Security Scanning Configuration
+
+prisma_cloud:
+  enabled: true
+  scan_on_push: true
+  scan_on_pr: true
+
+# IaC Scanning
+iac_scanning:
+  terraform: true
+  cloudformation: false
+  kubernetes: false
+
+# Container Scanning
+container_scanning:
+  enabled: false
+  registries: []
+
+# SAST Scanning
+sast_scanning:
+  enabled: true
+  languages:
+    - python
+    - javascript
+    - java
+
+# Compliance
+compliance:
+  frameworks:
+    - CIS
+    - PCI-DSS
+    - HIPAA
+
+# Add your custom security policies here

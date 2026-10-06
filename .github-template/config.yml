@@ -1,0 +1,19 @@
+# Repository Configuration
+
+repository:
+  name: "repository-name"
+  description: "Repository description"
+  language: "python"  # or your language
+  team: "team-name"
+
+deployment:
+  environments:
+    - dev
+    - staging
+    - prod
+
+ci_cd:
+  github_actions: true
+  jenkins: true
+
+# Add your custom configuration here

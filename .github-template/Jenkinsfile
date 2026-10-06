@@ -1,0 +1,117 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    timeout(time: 1, unit: 'HOURS')
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  parameters {
+    choice(
+      name: 'ENVIRONMENT',
+      choices: ['dev', 'staging', 'prod'],
+      description: 'Target environment'
+    )
+    booleanParam(
+      name: 'DRY_RUN',
+      defaultValue: true,
+      description: 'Dry run (plan only)'
+    )
+  }
+
+  environment {
+    AWS_REGION = 'us-east-1'
+    ENVIRONMENT = "${params.ENVIRONMENT}"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Validate') {
+      steps {
+        script {
+          echo "Validating configuration..."
+          sh '''
+            python3 -m py_compile apps/*.py 2>/dev/null || true
+            if [ -d infra/default ]; then
+              cd infra/default
+              terraform validate
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Plan') {
+      steps {
+        script {
+          echo "Running Terraform plan for ${ENVIRONMENT}..."
+          sh '''
+            if [ -d infra/default ]; then
+              cd infra/default
+              terraform init
+              terraform plan -var-file="vars-${ENVIRONMENT}.tfvars" -out=tfplan
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Review') {
+      when {
+        expression { params.DRY_RUN == true }
+      }
+      steps {
+        script {
+          echo "Dry run mode - stopping after plan"
+        }
+      }
+    }
+
+    stage('Apply') {
+      when {
+        expression { params.DRY_RUN == false }
+      }
+      steps {
+        script {
+          echo "Applying Terraform for ${ENVIRONMENT}..."
+          sh '''
+            if [ -d infra/default ] && [ -f infra/default/tfplan ]; then
+              cd infra/default
+              terraform apply -auto-approve tfplan
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('Post-Deploy') {
+      when {
+        expression { params.DRY_RUN == false }
+      }
+      steps {
+        script {
+          echo "Running post-deployment validations..."
+          // Add your post-deployment checks here
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+    success {
+      echo "Pipeline succeeded for ${ENVIRONMENT}"
+    }
+    failure {
+      echo "Pipeline failed for ${ENVIRONMENT}"
+    }
+  }
+}

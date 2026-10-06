@@ -1,0 +1,10 @@
+{
+  "apps": [
+    {
+      "name": "app-name",
+      "description": "Application description",
+      "language": "python",
+      "path": "apps/app-name"
+    }
+  ]
+}
