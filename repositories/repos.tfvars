@@ -1,10 +1,10 @@
 github_owner = "gh-mshyam"
 
 repositories = {
-  # Example: Add new repositories below
-  # "my-repo" = {
-  #   description = "My new repository"
+  # Example: Uncomment below to test repo creation
+  # "test-governance-repo" = {
+  #   description = "Test repository for governance validation"
   #   visibility  = "private"
-  #   topics      = ["terraform", "provisioning"]
+  #   topics      = ["governance", "test"]
   # }
 }

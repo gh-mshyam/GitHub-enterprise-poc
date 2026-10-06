@@ -9,26 +9,28 @@ from urllib.parse import urlparse
 
 def extract_repo_info(repo_url: str) -> tuple[str, str, str]:
     """Extract owner, repo, and platform from URL."""
+    # Handle SSH URLs: git@github.com:owner/repo.git
+    if repo_url.startswith('git@github.com:'):
+        path = repo_url.replace('git@github.com:', '').strip('/')
+        parts = path.split('/')
+        if len(parts) >= 2:
+            owner = parts[0]
+            repo = parts[1].replace('.git', '')
+            return owner, repo, 'ssh'
+        return None, None, None
+
+    # Handle HTTPS URLs
     parsed = urlparse(repo_url)
 
     if 'github.com' not in parsed.netloc:
         return None, None, None
 
-    # Extract from URL like: https://github.com/owner/repo or git@github.com:owner/repo.git
     if parsed.scheme in ['http', 'https']:
         parts = parsed.path.strip('/').split('/')
         if len(parts) >= 2:
             owner = parts[0]
             repo = parts[1].replace('.git', '')
             return owner, repo, 'https'
-    else:
-        # SSH format
-        path = parsed.path.strip(':').strip('/')
-        parts = path.split('/')
-        if len(parts) >= 2:
-            owner = parts[0]
-            repo = parts[1].replace('.git', '')
-            return owner, repo, 'ssh'
 
     return None, None, None
 
