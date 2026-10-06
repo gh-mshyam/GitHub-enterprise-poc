@@ -63,7 +63,10 @@ class RepositoryBootstrapper:
         """Clone repository to temp workspace"""
         print(f"📥 Cloning repository...")
 
-        repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
+        if self.github_token:
+            repo_url = f"https://{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"
+        else:
+            repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
 
         result = subprocess.run(
             ["git", "clone", repo_url, self.temp_dir],
@@ -180,7 +183,16 @@ Co-Authored-By: Template Bootstrap Bot <noreply@company.com>"""
                 capture_output=True
             )
 
-            # Push to main
+            # Push to main with authentication if token available
+            if self.github_token:
+                # Update remote URL to include token for authentication
+                subprocess.run(
+                    ["git", "remote", "set-url", "origin",
+                     f"https://{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"],
+                    check=True,
+                    capture_output=True
+                )
+
             subprocess.run(
                 ["git", "push", "-u", "origin", "main"],
                 check=True,
