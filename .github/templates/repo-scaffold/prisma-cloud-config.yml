@@ -1,0 +1,32 @@
+################################################################################
+# ⚠️  TEMPLATE MANAGED FILE
+# Prisma Cloud Security Scanning Configuration
+################################################################################
+
+prisma_cloud:
+  enabled: true
+
+  scanning:
+    infrastructure_as_code: true
+    sast: true
+    dependency_check: true
+    container_scanning: false
+
+  iac_scanners:
+    - terraform
+    - cloudformation
+
+  sast_languages:
+    - python
+    - javascript
+    - java
+    - go
+
+  compliance_frameworks:
+    - CIS
+    - PCI-DSS
+    - HIPAA
+    - SOC2
+
+  severity_threshold: medium
+  fail_on_critical: true

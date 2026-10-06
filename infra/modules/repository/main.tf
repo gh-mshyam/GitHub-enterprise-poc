@@ -31,3 +31,16 @@ resource "github_repository" "this" {
 resource "github_repository_vulnerability_alerts" "this" {
   repository = github_repository.this.name
 }
+
+# Bootstrap repository with template files
+resource "null_resource" "bootstrap_template" {
+  depends_on = [github_repository.this]
+
+  provisioner "local-exec" {
+    command = "python3 apps/scripts/bootstrap_repo.py ${var.name} ${var.github_owner}"
+
+    environment = {
+      GITHUB_TOKEN = var.github_token
+    }
+  }
+}
