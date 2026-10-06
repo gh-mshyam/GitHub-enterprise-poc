@@ -2,6 +2,8 @@
 
 Autonomous repository and team provisioning for GitHub using Terraform. Git-native infrastructure with simple workflows.
 
+> **Agent Instructions:** See `CLAUDE.md` for agent-specific entry points (Claude, Codex, Grok) or `.ghdp/INSTRUCTIONS.md` for full agent-agnostic documentation.
+
 ## What Does This Do?
 
 Creates and manages GitHub repositories and teams via Terraform, with two provisioning methods:
@@ -14,11 +16,11 @@ Creates and manages GitHub repositories and teams via Terraform, with two provis
 
 ```bash
 # Add a new repository
-vi repositories/repos.tfvars
+vi infra/repositories/repos.tfvars
 # Add entry: "my-repo" = { description = "...", visibility = "private" }
 
 git checkout -b add-my-repo
-git add repositories/repos.tfvars
+git add infra/repositories/repos.tfvars
 git commit -m "Add my-repo"
 git push
 
@@ -43,11 +45,11 @@ git push
 
 ## Configuration Files
 
-- **`repositories/repos.tfvars`** — New repositories to create
-- **`repositories/teams.tfvars`** — Teams and members
-- **`repositories/imports.tfvars`** — Existing repos to import and manage
+- **`infra/repositories/repos.tfvars`** — New repositories to create
+- **`infra/repositories/teams.tfvars`** — Teams and members
+- **`infra/repositories/imports.tfvars`** — Existing repos to import and manage
 
-See `repositories/README.md` for details.
+See `infra/repositories/README.md` for details.
 
 ## Infrastructure Modules
 
