@@ -37,12 +37,12 @@ Usage:
 1. **Create a new repository:**
    - Add entry to `repos.tfvars`
    - Create a PR
-   - On merge, the deploy workflow applies the changes
+   - On merge, workflows apply the changes
 
 2. **Create a new team:**
    - Add entry to `teams.tfvars`
    - Create a PR
-   - On merge, the deploy workflow applies the changes
+   - On merge, workflows apply the changes
 
 3. **Import an existing repository:**
    - Add entry to `imports.tfvars`
@@ -52,10 +52,10 @@ Usage:
 
 ## Workflow Integration
 
-The `.github/workflows/deploy.yml` automatically detects changed `.tfvars` files and applies them. For manual runs, specify the file:
+Workflows automatically detect changed `.tfvars` files and apply them. For manual runs:
 
 ```bash
 cd infra
-terraform plan -var-file=../repositories/repos.tfvars
-terraform apply -var-file=../repositories/repos.tfvars
+terraform plan -var-file=repositories/repos.tfvars
+terraform apply -var-file=repositories/repos.tfvars
 ```

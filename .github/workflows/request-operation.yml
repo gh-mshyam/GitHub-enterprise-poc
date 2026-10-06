@@ -89,7 +89,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add repositories/repos.tfvars
+          git add infra/repositories/repos.tfvars
           git commit -m "[${{ inputs.operation }}] Repository: ${{ inputs.repo_name }}"
           git push origin "$BRANCH"
 
@@ -128,7 +128,7 @@ jobs:
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
-        run: terraform plan -input=false -no-color -var-file=../repositories/repos.tfvars -out=tfplan.binary
+        run: terraform plan -input=false -no-color -var-file=repositories/repos.tfvars -out=tfplan.binary
 
       - name: Convert Plan to JSON
         if: steps.plan.outcome == 'success'

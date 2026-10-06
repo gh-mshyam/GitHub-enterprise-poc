@@ -34,7 +34,7 @@ jobs:
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
-        run: terraform apply -auto-approve -input=false -parallelism=1 -var-file=../repositories/repos.tfvars -var-file=../repositories/teams.tfvars -no-color
+        run: terraform apply -auto-approve -input=false -parallelism=1 -var-file=repositories/repos.tfvars -var-file=repositories/teams.tfvars -no-color
 
       - name: Commit Local State
         working-directory: infra
