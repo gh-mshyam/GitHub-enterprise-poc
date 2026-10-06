@@ -21,7 +21,6 @@ jobs:
       repo_name: ${{ steps.discover.outputs.repo_name }}
       owner: ${{ steps.discover.outputs.owner }}
       teams_count: ${{ steps.discover.outputs.teams_count }}
-      pr_number: ${{ steps.create_pr.outputs.pr_number }}
 
     steps:
       - name: Checkout
@@ -39,7 +38,6 @@ jobs:
         run: |
           DISCOVERY=$(python3 apps/scripts/discover_repo.py "${{ github.event.inputs.repo_url }}")
 
-          # Extract fields
           REPO_NAME=$(echo "$DISCOVERY" | jq -r '.repo_name')
           OWNER=$(echo "$DISCOVERY" | jq -r '.owner')
           TEAMS_COUNT=$(echo "$DISCOVERY" | jq -r '.teams_count')
@@ -47,12 +45,10 @@ jobs:
           TEAMS_ENTRIES=$(echo "$DISCOVERY" | jq -r '.teams_tfvars_entries')
           SUMMARY=$(echo "$DISCOVERY" | jq -r '.summary')
 
-          # Set outputs
           echo "repo_name=$REPO_NAME" >> $GITHUB_OUTPUT
           echo "owner=$OWNER" >> $GITHUB_OUTPUT
           echo "teams_count=$TEAMS_COUNT" >> $GITHUB_OUTPUT
 
-          # Save to files for PR
           echo "$REPOS_ENTRY" > /tmp/repos_entry.txt
           echo "$TEAMS_ENTRIES" > /tmp/teams_entries.txt
           echo "$SUMMARY" > /tmp/summary.md
@@ -62,11 +58,9 @@ jobs:
           REPOS_ENTRY=$(cat /tmp/repos_entry.txt)
           TFVARS_FILE="infra/repositories/imports.tfvars"
 
-          # Check if entry already exists
           if grep -q "\"${{ steps.discover.outputs.repo_name }}\"" "$TFVARS_FILE"; then
             echo "Repository already in imports.tfvars, skipping"
           else
-            # Add entry before closing brace
             sed -i '' '/^}$/i\
 '"$REPOS_ENTRY"'
 ' "$TFVARS_FILE"
@@ -79,10 +73,16 @@ jobs:
           TFVARS_FILE="infra/repositories/teams.tfvars"
 
           if [ -n "$TEAMS_ENTRIES" ]; then
-            # Add entries before closing brace
             sed -i '' '/^}$/i\
 '"$TEAMS_ENTRIES"'
 ' "$TFVARS_FILE"
+          fi
+
+      - name: Validate Configuration
+        run: |
+          python3 apps/scripts/validate_tfvars.py infra/repositories/imports.tfvars
+          if [ -f infra/repositories/teams.tfvars ]; then
+            python3 apps/scripts/validate_tfvars.py infra/repositories/teams.tfvars
           fi
 
       - name: Create Import PR
@@ -105,7 +105,6 @@ jobs:
           git commit -m "Import: Discover ${{ steps.discover.outputs.repo_name }} from ${{ steps.discover.outputs.owner }}"
           git push origin "$BRANCH"
 
-          # Create PR with summary
           PR_URL=$(gh pr create \
             --title "Import: ${{ steps.discover.outputs.repo_name }}" \
             --body "$SUMMARY" \
@@ -114,8 +113,6 @@ jobs:
 
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K[0-9]+')
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-
-          echo "✓ Created PR #$PR_NUMBER"
 
       - name: Post Summary
         if: always()

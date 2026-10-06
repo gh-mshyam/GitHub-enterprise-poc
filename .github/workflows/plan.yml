@@ -1,27 +1,40 @@
 name: Terraform Plan
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "infra/**"
-      - "repositories/**"
-      - "apps/scripts/**"
-      - ".github/workflows/plan.yml"
+  issue_comment:
+    types: [created, edited]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
+  check-comment:
+    name: Check for /plan command
+    runs-on: ubuntu-latest
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/plan')
+    outputs:
+      should_plan: ${{ steps.check.outputs.should_plan }}
+
+    steps:
+      - name: Check if /plan command
+        id: check
+        run: |
+          if [[ "${{ github.event.comment.body }}" =~ ^/plan ]]; then
+            echo "should_plan=true" >> $GITHUB_OUTPUT
+          fi
+
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    needs: check-comment
+    if: needs.check-comment.outputs.should_plan == 'true'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -41,26 +54,17 @@ jobs:
           TF_VAR_github_owner: ${{ github.repository_owner }}
         run: terraform plan -input=false -no-color -var-file=repositories/repos.tfvars -var-file=repositories/teams.tfvars
 
-      - name: Convert Plan To JSON
-        if: steps.plan.outcome == 'success'
-        working-directory: infra
-        run: terraform show -json tfplan.binary > tfplan.json
-
       - name: Post Plan Comment
-        if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
             const planOutcome = "${{ steps.plan.outcome }}";
 
             let body;
             if (planOutcome !== 'success') {
-              body = "### Terraform Plan Failed\n\nThe `terraform plan` step did not complete successfully. See the workflow run logs for details.";
-            } else if (fs.existsSync('infra/tfplan.json')) {
-              body = "### Terraform Plan Succeeded\n\nReview the plan in the workflow logs.";
+              body = "### ❌ Terraform Plan Failed\n\nCheck the workflow logs for details.";
             } else {
-              body = "### Terraform Plan\n\nPlan succeeded.";
+              body = "### ✅ Terraform Plan Succeeded\n\nConfiguration is valid. Ready to merge.";
             }
 
             await github.rest.issues.createComment({
