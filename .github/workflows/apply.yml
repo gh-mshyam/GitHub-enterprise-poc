@@ -10,27 +10,10 @@ permissions:
   contents: write
 
 jobs:
-  detect-type:
-    name: Detect Request Type
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
-    outputs:
-      is_import: ${{ steps.detect.outputs.is_import }}
-
-    steps:
-      - name: Detect Import vs Normal
-        id: detect
-        run: |
-          if [[ "${{ github.event.pull_request.title }}" =~ ^Import: ]]; then
-            echo "is_import=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_import=false" >> $GITHUB_OUTPUT
-          fi
-
   apply:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    needs: detect-type
+    if: github.event.pull_request.merged == true
 
     steps:
       - name: Checkout
@@ -45,50 +28,7 @@ jobs:
         working-directory: infra
         run: terraform init -input=false
 
-      - name: Extract Import Targets (Import Only)
-        if: needs.detect-type.outputs.is_import == 'true'
-        id: targets
-        run: |
-          REPOS=$(grep -oP '"\K[^"]+(?="\s*=\s*\{)' infra/repositories/imports.tfvars || true)
-          echo "repositories=$REPOS" >> $GITHUB_OUTPUT
-
-          TEAMS=$(grep -oP '"\K[^"]+(?="\s*=\s*\{)' infra/repositories/teams.tfvars || true)
-          echo "teams=$TEAMS" >> $GITHUB_OUTPUT
-
-      - name: Terraform Import Repositories (Import Only)
-        if: needs.detect-type.outputs.is_import == 'true'
-        working-directory: infra
-        env:
-          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
-          TF_VAR_github_owner: ${{ github.repository_owner }}
-        run: |
-          for repo in ${{ steps.targets.outputs.repositories }}; do
-            echo "Importing repository: $repo"
-            terraform import -input=false \
-              "module.repository[\"$repo\"].github_repository.this" \
-              "$repo" || echo "Note: Repository may already be imported"
-          done
-
-      - name: Terraform Import Teams (Import Only)
-        if: needs.detect-type.outputs.is_import == 'true'
-        working-directory: infra
-        env:
-          TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
-          TF_VAR_github_owner: ${{ github.repository_owner }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for team in ${{ steps.targets.outputs.teams }}; do
-            echo "Attempting to import team: $team"
-            TEAM_ID=$(gh api orgs/${{ github.repository_owner }}/teams/$team --jq '.id' 2>/dev/null || echo "")
-            if [ -n "$TEAM_ID" ]; then
-              terraform import -input=false \
-                "module.teams[\"$team\"].github_team.this" \
-                "$TEAM_ID" || echo "Note: Team may already be imported"
-            fi
-          done
-
       - name: Terraform Plan
-        id: plan
         working-directory: infra
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
@@ -106,29 +46,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           git add -f infra/terraform.tfstate
           git diff --cached --quiet || git commit -m "Update terraform state after apply [skip ci]"
           git push
 
-      - name: Post Summary
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const isImport = "${{ needs.detect-type.outputs.is_import }}" === 'true';
-            const title = isImport ? "✅ Import Complete" : "✅ Apply Complete";
-            const message = isImport
-              ? `Repositories: ${{ steps.targets.outputs.repositories }}\nTeams: ${{ steps.targets.outputs.teams || '(none)' }}`
-              : "Resources created/updated";
-
-            const summary = `
-## ${title}
-
-${message}
-
-- State committed
-- Resources synchronized
-            `.trim();
-
-            core.summary.addRaw(summary).write();
+      - name: Summary
+        run: echo "✅ Terraform Apply Complete"
