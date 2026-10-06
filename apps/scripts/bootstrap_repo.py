@@ -24,7 +24,8 @@ class RepositoryBootstrapper:
         self.repo_owner = repo_owner
         self.github_token = github_token or os.environ.get("GITHUB_TOKEN")
 
-        self.template_dir = Path(".github/templates/repo-scaffold")
+        script_dir = Path(__file__).parent.parent.parent
+        self.template_dir = script_dir / ".github/templates/repo-scaffold"
         self.temp_dir = None
 
     def run(self):
