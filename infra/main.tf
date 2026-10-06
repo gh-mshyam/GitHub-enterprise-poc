@@ -35,6 +35,8 @@ module "repository" {
   has_projects       = each.value.has_projects
   archive_on_destroy = each.value.archive_on_destroy
   topics             = each.value.topics
+  github_owner       = var.github_owner
+  github_token       = var.github_token
 }
 
 module "teams" {
