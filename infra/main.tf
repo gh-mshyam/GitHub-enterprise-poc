@@ -36,3 +36,15 @@ module "repository" {
   archive_on_destroy = each.value.archive_on_destroy
   topics             = each.value.topics
 }
+
+module "teams" {
+  source = "./modules/teams"
+
+  for_each = var.teams
+
+  name         = each.key
+  description  = each.value.description
+  privacy      = each.value.privacy
+  members      = each.value.members
+  repositories = each.value.repositories
+}

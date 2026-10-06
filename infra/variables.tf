@@ -24,3 +24,14 @@ variable "repositories" {
     teams              = optional(map(string), {})
   }))
 }
+
+variable "teams" {
+  description = "Map of team name to its desired configuration"
+  type = map(object({
+    description  = optional(string, "")
+    privacy      = optional(string, "closed")
+    members      = optional(list(string), [])
+    repositories = optional(list(string), [])
+  }))
+  default = {}
+}
