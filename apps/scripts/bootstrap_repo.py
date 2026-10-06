@@ -64,7 +64,7 @@ class RepositoryBootstrapper:
         print(f"📥 Cloning repository...")
 
         if self.github_token:
-            repo_url = f"https://{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"
+            repo_url = f"https://x-access-token:{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"
         else:
             repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
 
@@ -188,7 +188,7 @@ Co-Authored-By: Template Bootstrap Bot <noreply@company.com>"""
                 # Update remote URL to include token for authentication
                 subprocess.run(
                     ["git", "remote", "set-url", "origin",
-                     f"https://{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"],
+                     f"https://x-access-token:{self.github_token}@github.com/{self.repo_owner}/{self.repo_name}.git"],
                     check=True,
                     capture_output=True
                 )
