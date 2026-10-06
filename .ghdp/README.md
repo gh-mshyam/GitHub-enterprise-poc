@@ -25,12 +25,12 @@ Central hub for repository governance, instructions, and templates.
 
 ### 📦 Templates
 
-**`templates/`** — GHDP CLI standard repository template
+**See: `.github/templates/`** — GHDP CLI standard repository template
 
 Standard structure for all new repositories:
 
 ```
-templates/
+.github/templates/
 ├── .github/workflows/
 │   ├── ci.yml              (Lint, test, validate, security scan)
 │   └── deploy.yml          (Infrastructure deployment)
@@ -66,7 +66,7 @@ templates/
 
 1. Provisioning system creates repo
 2. Applies `repository_template = "ghdp-cli"`
-3. Template files auto-populated from `templates/`
+3. Template files auto-populated from `.github/templates/`
 4. New repo has:
    - GitHub Actions workflows (CI + Deploy)
    - Jenkins pipeline
@@ -91,23 +91,24 @@ templates/
 
 ```
 .ghdp/
-├── README.md                      (This file)
-├── INSTRUCTIONS.md                (Complete guidance)
-├── TESTING.md                     (Validation & testing)
-├── TEST_SPECIFICATIONS.md         (Test specs)
-└── templates/                     (GHDP CLI template)
-    ├── README.md
-    ├── TEMPLATE_README.md
-    ├── Jenkinsfile
-    ├── config.yml
-    ├── prisma-cloud-config.yml
-    ├── .github/workflows/
-    │   ├── ci.yml
-    │   └── deploy.yml
-    ├── apps/apps.json
-    └── infra/default/
-        ├── main.tf
-        └── variables.tf
+├── README.md                (This file - Governance hub)
+├── INSTRUCTIONS.md          (Complete guidance)
+├── TESTING.md               (Validation & testing)
+└── TEST_SPECIFICATIONS.md   (Test specs)
+
+.github/templates/           (GHDP CLI template)
+├── README.md
+├── TEMPLATE_README.md
+├── Jenkinsfile
+├── config.yml
+├── prisma-cloud-config.yml
+├── .github/workflows/
+│   ├── ci.yml
+│   └── deploy.yml
+├── apps/apps.json
+└── infra/default/
+    ├── main.tf
+    └── variables.tf
 ```
 
 ---
@@ -123,7 +124,7 @@ templates/
 ### Customize
 
 To use a different template:
-1. Create new subfolder in `templates/`
+1. Create new subfolder in `.github/templates/`
 2. Add custom structure and workflows
 3. Update repository_template in provisioning config
 4. New repos will use that template instead
