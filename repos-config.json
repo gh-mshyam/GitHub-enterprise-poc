@@ -1,0 +1,23 @@
+{
+  "api-server": {
+    "custom_files": {}
+  },
+  "web-app": {
+    "custom_files": {}
+  },
+  "data-pipeline": {
+    "custom_files": {}
+  },
+  "payment-api": {
+    "custom_files": {
+      "Jenkinsfile": "custom/payment-api-Jenkinsfile",
+      "config.yml": "custom/payment-api-config.yml"
+    }
+  },
+  "mobile-backend": {
+    "custom_files": {}
+  },
+  "analytics-service": {
+    "custom_files": {}
+  }
+}

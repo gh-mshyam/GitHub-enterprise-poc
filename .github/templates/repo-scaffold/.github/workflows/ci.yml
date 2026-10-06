@@ -1,0 +1,92 @@
+################################################################################
+# ⚠️  TEMPLATE MANAGED FILE
+# GitHub Actions CI Workflow
+################################################################################
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 black isort
+
+      - name: Run flake8
+        run: flake8 . --max-line-length=100 || true
+
+      - name: Check black formatting
+        run: black --check . || true
+
+      - name: Check import sorting
+        run: isort --check . || true
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: pytest . --cov --cov-report=xml || true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+
+  validate-infra:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform init
+        run: cd infra && terraform init -backend=false
+
+      - name: Terraform validate
+        run: cd infra && terraform validate
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          exit-code: "0"

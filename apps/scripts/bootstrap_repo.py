@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""
+Bootstrap Repository with Template Files
+
+This script initializes a newly created repository with standard template files
+from .github/templates/repo-scaffold/
+"""
+
+import os
+import sys
+import json
+import shutil
+import subprocess
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+
+class RepositoryBootstrapper:
+    """Bootstrap a new repository with template files"""
+
+    def __init__(self, repo_name, repo_owner, github_token=None):
+        self.repo_name = repo_name
+        self.repo_owner = repo_owner
+        self.github_token = github_token or os.environ.get("GITHUB_TOKEN")
+
+        self.template_dir = Path(".github/templates/repo-scaffold")
+        self.temp_dir = None
+
+    def run(self):
+        """Execute bootstrap process"""
+        try:
+            print(f"🚀 Bootstrapping repository: {self.repo_name}")
+
+            # Step 1: Create temp directory
+            self.temp_dir = tempfile.mkdtemp(prefix=f"bootstrap_{self.repo_name}_")
+            print(f"📁 Temp directory: {self.temp_dir}")
+
+            # Step 2: Clone repository
+            self._clone_repo()
+
+            # Step 3: Copy template files
+            self._copy_template_files()
+
+            # Step 4: Create metadata
+            self._create_metadata()
+
+            # Step 5: Commit and push
+            self._commit_and_push()
+
+            print(f"✅ Bootstrap complete: {self.repo_name}")
+            return True
+
+        except Exception as e:
+            print(f"❌ Bootstrap failed: {e}")
+            return False
+
+        finally:
+            self._cleanup()
+
+    def _clone_repo(self):
+        """Clone repository to temp workspace"""
+        print(f"📥 Cloning repository...")
+
+        repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
+
+        result = subprocess.run(
+            ["git", "clone", repo_url, self.temp_dir],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"Failed to clone repo: {result.stderr}")
+
+    def _copy_template_files(self):
+        """Copy template files from source to repo"""
+        print(f"📋 Copying template files...")
+
+        if not self.template_dir.exists():
+            raise Exception(f"Template directory not found: {self.template_dir}")
+
+        # Count files for progress
+        file_count = 0
+
+        # Recursively copy all template files
+        for src_path in self.template_dir.rglob("*"):
+            if src_path.is_file():
+                # Calculate relative path
+                rel_path = src_path.relative_to(self.template_dir)
+                dst_path = Path(self.temp_dir) / rel_path
+
+                # Create parent directories
+                dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Copy file
+                shutil.copy2(src_path, dst_path)
+                file_count += 1
+                print(f"   ✓ {rel_path}")
+
+        print(f"   Copied {file_count} files")
+
+    def _create_metadata(self):
+        """Create .repo-meta.json with template metadata"""
+        print(f"📝 Creating template metadata...")
+
+        metadata = {
+            "template_version": "repo-scaffold",
+            "initialized_at": datetime.now().isoformat(),
+            "bootstrap_script_version": "1.0",
+            "repository_name": self.repo_name,
+            "repository_owner": self.repo_owner
+        }
+
+        metadata_file = Path(self.temp_dir) / ".repo-meta.json"
+
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        print(f"   Created .repo-meta.json")
+
+    def _commit_and_push(self):
+        """Commit template files and push to remote"""
+        print(f"📤 Committing and pushing...")
+
+        os.chdir(self.temp_dir)
+
+        try:
+            # Configure git
+            subprocess.run(
+                ["git", "config", "user.name", "Template Bootstrap Bot"],
+                check=True,
+                capture_output=True
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "bootstrap@company.com"],
+                check=True,
+                capture_output=True
+            )
+
+            # Stage all files
+            subprocess.run(
+                ["git", "add", "-A"],
+                check=True,
+                capture_output=True
+            )
+
+            # Create commit message
+            commit_message = f"""Initialize repository with repo-scaffold template
+
+Template Version: repo-scaffold
+Initialized: {datetime.now().isoformat()}
+
+This repository was auto-initialized with the standard repo-scaffold template.
+
+Includes:
+- Jenkinsfile (CI/CD pipeline)
+- GitHub Actions workflows (ci.yml, deploy.yml)
+- Terraform scaffolding (infra/default/)
+- Security configuration (Prisma Cloud)
+- Application manifest (apps.json)
+- Configuration template (config.yml)
+
+Next Steps:
+1. Review and customize config.yml
+2. Update README.md with project details
+3. Add application code to apps/
+4. Configure infrastructure in infra/default/main.tf
+5. Customize Jenkinsfile if needed
+
+See TEMPLATE_README.md for detailed guide.
+
+Co-Authored-By: Template Bootstrap Bot <noreply@company.com>"""
+
+            # Commit
+            subprocess.run(
+                ["git", "commit", "-m", commit_message],
+                check=True,
+                capture_output=True
+            )
+
+            # Push to main
+            subprocess.run(
+                ["git", "push", "-u", "origin", "main"],
+                check=True,
+                capture_output=True
+            )
+
+            print(f"   ✓ Pushed to main branch")
+
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Git operation failed: {e}")
+
+    def _cleanup(self):
+        """Remove temporary directory"""
+        if self.temp_dir and Path(self.temp_dir).exists():
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+            print(f"🧹 Cleaned up temp directory")
+
+
+def main():
+    """Main entry point"""
+    if len(sys.argv) < 3:
+        print("Usage: bootstrap_repo.py <repo_name> <repo_owner>")
+        print("Example: bootstrap_repo.py api-server myorg")
+        sys.exit(1)
+
+    repo_name = sys.argv[1]
+    repo_owner = sys.argv[2]
+
+    bootstrapper = RepositoryBootstrapper(repo_name, repo_owner)
+    success = bootstrapper.run()
+
+    sys.exit(0 if success else 1)
+
+
+if __name__ == "__main__":
+    main()

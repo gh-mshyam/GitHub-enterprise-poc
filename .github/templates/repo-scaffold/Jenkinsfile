@@ -1,0 +1,95 @@
+################################################################################
+# ⚠️  TEMPLATE MANAGED FILE
+# This file is auto-populated from .github/templates/repo-scaffold/
+# Do not edit directly. See infra/Jenkinsfile for custom stages.
+################################################################################
+
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'ENVIRONMENT', choices: ['dev', 'staging', 'prod'], description: 'Deployment environment')
+        booleanParam(name: 'DRY_RUN', defaultValue: true, description: 'Run terraform plan only')
+    }
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        TERRAFORM_VERSION = '1.9.8'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git log -1 --oneline'
+            }
+        }
+
+        stage('Validate') {
+            steps {
+                script {
+                    echo "Validating configuration..."
+                    sh 'cd infra && terraform init -backend=false'
+                    sh 'cd infra && terraform validate'
+                }
+            }
+        }
+
+        stage('Plan') {
+            steps {
+                script {
+                    echo "Planning infrastructure changes..."
+                    sh '''
+                        cd infra
+                        terraform plan \
+                            -var-file=default/variables.tf \
+                            -out=tfplan
+                    '''
+                }
+            }
+        }
+
+        stage('Review') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "Review plan before applying..."
+                sh 'cat tfplan'
+            }
+        }
+
+        stage('Apply') {
+            when {
+                branch 'main'
+                expression { params.DRY_RUN == false }
+            }
+            steps {
+                script {
+                    echo "Applying infrastructure changes..."
+                    sh 'cd infra && terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+
+        stage('Post-Deploy') {
+            when { branch 'main' }
+            steps {
+                echo "Post-deployment validation..."
+                sh 'echo "Deployment complete for ${ENVIRONMENT}"'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+        success {
+            echo "Pipeline succeeded!"
+        }
+    }
+}

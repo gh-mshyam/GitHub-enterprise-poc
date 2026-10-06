@@ -1,0 +1,47 @@
+################################################################################
+# ⚠️  TEMPLATE MANAGED FILE
+# GitHub Actions Deploy Workflow
+################################################################################
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform init
+        run: cd infra && terraform init
+
+      - name: Terraform plan
+        run: cd infra && terraform plan -out=tfplan
+
+      - name: Terraform apply
+        run: cd infra && terraform apply -auto-approve tfplan
+
+      - name: Notify deployment
+        if: success()
+        run: echo "Deployment successful on $(date)"

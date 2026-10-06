@@ -51,3 +51,13 @@ variable "topics" {
   default     = []
 }
 
+variable "github_owner" {
+  description = "GitHub organization/owner"
+  type        = string
+}
+
+variable "github_token" {
+  description = "GitHub token for bootstrap provisioner"
+  type        = string
+  sensitive   = true
+}

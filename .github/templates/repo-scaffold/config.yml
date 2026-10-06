@@ -1,0 +1,28 @@
+################################################################################
+# ⚠️  TEMPLATE MANAGED FILE
+# This file is auto-populated from .github/templates/repo-scaffold/
+# Customize values below for your repository
+################################################################################
+
+repository:
+  name: "repository-name"  # Change this
+  team: "team-name"        # Change this
+  language: "python"       # python, javascript, go, etc.
+  description: "Repository description"
+
+environments:
+  - name: dev
+    aws_region: us-east-1
+  - name: staging
+    aws_region: us-east-1
+  - name: prod
+    aws_region: us-east-1
+
+ci_cd:
+  github_actions: true
+  jenkins: true
+
+security:
+  prisma_cloud_enabled: true
+  code_scanning: true
+  dependency_check: true
