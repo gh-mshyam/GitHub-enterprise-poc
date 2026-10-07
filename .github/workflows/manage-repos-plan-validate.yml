@@ -5,7 +5,7 @@ on:
     branches: [main]
     types: [opened, synchronize]
     paths:
-      - infra/config/repositories.json
+      - infra/repos.tfvars
   issue_comment:
     types: [created, edited]
 
@@ -27,151 +27,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate JSON schema
+      - name: Terraform init
         shell: bash
         run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          import sys
-          from pathlib import Path
-
-          try:
-            config = json.loads(Path("infra/config/repositories.json").read_text())
-            if "repositories" not in config:
-              print("❌ Missing 'repositories' key")
-              sys.exit(1)
-
-            for repo_id, repo in config["repositories"].items():
-              if "operation" not in repo:
-                print(f"❌ {repo_id}: Missing 'operation'")
-                sys.exit(1)
-              if "name" not in repo:
-                print(f"❌ {repo_id}: Missing 'name'")
-                sys.exit(1)
-              if "visibility" not in repo:
-                print(f"❌ {repo_id}: Missing 'visibility'")
-                sys.exit(1)
-
-            print("✅ JSON validation passed")
-          except Exception as e:
-            print(f"❌ Validation error: {e}")
-            sys.exit(1)
-          PYTHON_EOF
-
-      - name: Generate terraform vars
-        shell: bash
-        run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          from pathlib import Path
-
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repositories = config.get("repositories", {})
-
-          lines = [
-            '# Auto-generated from repositories.json',
-            'repositories = {',
-          ]
-
-          for repo_id, repo in repositories.items():
-            if repo.get("operation") == "delete":
-              continue
-
-            lines.append(f'  "{repo_id}" = {{')
-            lines.append(f'    name       = "{repo.get("name", repo_id)}"')
-            lines.append(f'    visibility = "{repo.get("visibility", "private")}"')
-
-            if repo.get("description"):
-              lines.append(f'    description = "{repo["description"]}"')
-
-            if repo.get("topics"):
-              topics = ', '.join([f'"{t}"' for t in repo["topics"]])
-              lines.append(f'    topics = [{topics}]')
-
-            if repo.get("teams"):
-              teams = ', '.join([f'"{t}"' for t in repo["teams"]])
-              lines.append(f'    teams = [{teams}]')
-
-            lines.append('  }')
-
-          lines.append('}')
-          Path("repos.tfvars").write_text('\n'.join(lines))
-          print("✅ Generated repos.tfvars")
-          PYTHON_EOF
-
-      - name: Handle repository imports
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          from pathlib import Path
-          import subprocess
-
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repositories = config.get("repositories", {})
-
-          # Extract repositories marked for import
-          imports = {repo_id: repo for repo_id, repo in repositories.items()
-                     if repo.get("operation") == "import"}
-
-          if not imports:
-            print("ℹ️  No repositories marked for import")
-            exit(0)
-
-          print(f"📥 Processing {len(imports)} import(s)...")
-
-          # Initialize terraform first
-          result = subprocess.run(
-            ["terraform", "init", "-upgrade=false"],
-            cwd="infra",
-            capture_output=True,
-            text=True
-          )
-
-          for repo_id, repo in imports.items():
-            import_cfg = repo.get("import_existing", {})
-            repo_owner = import_cfg.get("owner")
-            repo_gid = import_cfg.get("repo_id")
-
-            if not repo_owner or not repo_gid:
-              print(f"⚠️  Skipping {repo_id}: missing owner or repo_id")
-              continue
-
-            resource_name = f"github_repository.this[\"{repo_id}\"]"
-            import_id = f"{repo_owner}/{repo_gid}"
-
-            print(f"\n📥 Importing: {repo_id} from {import_id}")
-
-            # Run terraform import
-            result = subprocess.run(
-              ["terraform", "import", resource_name, import_id],
-              cwd="infra",
-              capture_output=True,
-              text=True,
-              env={**subprocess.os.environ, "TF_VAR_github_token": "${{ secrets.GITHUB_TOKEN }}"}
-            )
-
-            if result.returncode == 0 or "already exists" in result.stdout:
-              print(f"✅ Imported: {repo_id}")
-            else:
-              print(f"ℹ️  {repo_id}: {result.stdout or result.stderr}")
-
-          print("\n✅ Import processing completed")
-          PYTHON_EOF
+          cd infra
+          terraform init -upgrade=false
 
       - name: Create terraform plan
         shell: bash
         env:
           TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
         run: |
           cd infra
-          terraform init -upgrade=false
-          terraform plan -var-file=../repos.tfvars -json > tfplan.json 2>&1 || true
-
-          # Convert to readable format
-          terraform show -json tfplan.json | jq '.' > tfplan_readable.json || true
+          terraform plan -var-file=repos.tfvars -json > tfplan.json 2>&1 || true
+          terraform show -json tfplan.json > tfplan_readable.json 2>&1 || true
           echo "✅ Terraform plan completed"
 
       - name: Build plan summary
@@ -179,49 +49,21 @@ jobs:
         shell: bash
         run: |
           python3 << 'PYTHON_EOF'
-          import json
+          import re
           from pathlib import Path
           from datetime import datetime
 
           try:
-            config = json.loads(Path("infra/config/repositories.json").read_text())
-            repos = config.get("repositories", {})
-
-            create = [r for r in repos.values() if r.get("operation") == "create"]
-            import_repos = [r for r in repos.values() if r.get("operation") == "import"]
-            update = [r for r in repos.values() if r.get("operation") == "update"]
-            delete = [r for r in repos.values() if r.get("operation") == "delete"]
+            tfvars_content = Path("infra/repos.tfvars").read_text()
+            repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
 
             summary = "## Terraform Plan Summary\n\n"
+            summary += f"**Repositories:** {len(repo_ids)}\n"
 
-            if create:
-              summary += f"**Create ({len(create)}):**\n"
-              for r in create:
-                summary += f"- `{r['name']}` ({r.get('visibility', 'private')})\n"
-              summary += "\n"
+            for repo_id in repo_ids:
+              summary += f"- `{repo_id}`\n"
 
-            if import_repos:
-              summary += f"**Import ({len(import_repos)}):**\n"
-              for r in import_repos:
-                summary += f"- `{r['name']}` (import repo_id: {r.get('import_existing', {}).get('repo_id')})\n"
-              summary += "\n"
-
-            if update:
-              summary += f"**Update ({len(update)}):**\n"
-              for r in update:
-                summary += f"- `{r['name']}`\n"
-              summary += "\n"
-
-            if delete:
-              summary += f"**Delete ({len(delete)}):**\n"
-              for r in delete:
-                summary += f"- `{r['name']}` ⚠️ DESTRUCTIVE\n"
-              summary += "\n"
-
-            if not (create or import_repos or update or delete):
-              summary += "No changes.\n"
-
-            summary += f"\n✅ Updated at {datetime.now().isoformat()}"
+            summary += f"\n✅ Plan generated at {datetime.now().isoformat()}"
 
             print(summary)
             Path("plan_summary.txt").write_text(summary)
@@ -235,7 +77,6 @@ jobs:
         run: |
           PR_NUMBER=${{ github.event.pull_request.number || github.event.issue.number }}
 
-          # Search for existing comment
           COMMENT_ID=$(gh pr view $PR_NUMBER \
             --json comments \
             --jq '.comments[] | select(.body | contains("Terraform Plan Summary")) | .id' \

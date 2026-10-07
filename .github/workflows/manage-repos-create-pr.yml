@@ -1,10 +1,10 @@
-name: Create PR for Repository Changes
+name: Create PR (Develop → Main)
 
 on:
   push:
     branches: [develop]
     paths:
-      - infra/config/repositories.json
+      - infra/repos.tfvars
 
 permissions:
   contents: read
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   create-pr:
-    name: Create Pull Request
+    name: Create or Update PR
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,55 +20,105 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changes summary
-        id: summary
+      - name: Check if develop is ahead of main
+        id: check_diff
         shell: bash
         run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          from pathlib import Path
+          MAIN_SHA=$(git rev-parse origin/main)
+          DEVELOP_SHA=$(git rev-parse origin/develop)
 
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repos = config.get("repositories", {})
+          if [ "$MAIN_SHA" != "$DEVELOP_SHA" ]; then
+            echo "CHANGES_EXIST=true" >> $GITHUB_OUTPUT
+            echo "✅ Changes detected between develop and main"
+          else
+            echo "CHANGES_EXIST=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No changes between branches"
+          fi
 
-          create_count = len([r for r in repos.values() if r.get("operation") == "create"])
-          import_count = len([r for r in repos.values() if r.get("operation") == "import"])
-          update_count = len([r for r in repos.values() if r.get("operation") == "update"])
-          delete_count = len([r for r in repos.values() if r.get("operation") == "delete"])
-
-          parts = []
-          if create_count > 0:
-            parts.append(f"create {create_count}")
-          if import_count > 0:
-            parts.append(f"import {import_count}")
-          if update_count > 0:
-            parts.append(f"update {update_count}")
-          if delete_count > 0:
-            parts.append(f"delete {delete_count}")
-
-          summary = ", ".join(parts) if parts else "no changes"
-          print(f"SUMMARY={summary}")
-          print(f"::set-output name=summary::{summary}")
-          PYTHON_EOF
-
-      - name: Create pull request
+      - name: Get existing PR
+        id: find_pr
+        if: steps.check_diff.outputs.CHANGES_EXIST == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if PR already exists
-          EXISTING_PR=$(gh pr list \
+          PR_NUMBER=$(gh pr list \
             --base main \
             --head develop \
+            --state open \
             --json number \
             --jq '.[0].number' 2>/dev/null)
 
-          if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
-            echo "PR #$EXISTING_PR already exists, skipping creation"
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            echo "PR_EXISTS=true" >> $GITHUB_OUTPUT
+            echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "✅ Found existing PR #$PR_NUMBER"
           else
-            gh pr create \
-              --base main \
-              --head develop \
-              --title "Repository changes: ${{ steps.summary.outputs.summary }}" \
-              --body "$(cat .github/pr-template.md 2>/dev/null || echo '## Repository Changes\n\nSee plan in comments.')"
-            echo "PR created successfully"
+            echo "PR_EXISTS=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No existing PR found"
           fi
+
+      - name: Create new PR
+        if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'false'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
+
+          cat > /tmp/pr_body.txt <<'BODY'
+          ## Sync Repository Configuration
+
+          Repository changes from `develop` branch ready to apply.
+
+          **Repositories managed:** REPO_COUNT_VAR
+
+          ### Next Steps
+          - Review changes
+          - Approve and merge to main
+          - Apply workflow will run automatically
+
+          ---
+
+          **Note:** This PR is auto-generated. Edit title/description as needed.
+          BODY
+
+          sed -i.bak "s/REPO_COUNT_VAR/$REPO_COUNT/" /tmp/pr_body.txt
+
+          gh pr create \
+            --base main \
+            --head develop \
+            --title "chore: sync repos.tfvars (develop → main)" \
+            --body-file /tmp/pr_body.txt
+          echo "✅ PR created"
+
+      - name: Update existing PR
+        if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
+          REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
+
+          cat > /tmp/pr_body.txt <<'BODY'
+          ## Sync Repository Configuration
+
+          Repository changes from `develop` branch ready to apply.
+
+          **Repositories managed:** REPO_COUNT_VAR
+
+          ### Next Steps
+          - Review changes
+          - Approve and merge to main
+          - Apply workflow will run automatically
+
+          ---
+
+          **Note:** This PR is auto-generated. Edit title/description as needed.
+          BODY
+
+          sed -i.bak "s/REPO_COUNT_VAR/$REPO_COUNT/" /tmp/pr_body.txt
+
+          gh pr edit $PR_NUMBER --body-file /tmp/pr_body.txt
+          echo "✅ PR updated (#$PR_NUMBER)"
