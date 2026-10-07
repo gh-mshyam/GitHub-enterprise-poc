@@ -1,658 +1,436 @@
-# Step-by-Step Operational Scenarios
+# How to Do Things
 
-Detailed walkthrough of common operations: create, import, update, delete repos.
-
----
-
-## Table of Contents
-
-1. [Scenario 1: Create New Repository](#scenario-1-create-new-repository)
-2. [Scenario 2: Import Existing Repository](#scenario-2-import-existing-repository)
-3. [Scenario 3: Update Repository Configuration](#scenario-3-update-repository-configuration)
-4. [Scenario 4: Archive/Delete Repository](#scenario-4-archivedelete-repository)
-5. [Scenario 5: Bulk Operations](#scenario-5-bulk-operations)
-6. [Troubleshooting](#troubleshooting)
+Step-by-step guides for common tasks.
 
 ---
 
-## Scenario 1: Create New Repository
+## Task 1: Create a New Repository
 
-**Goal:** Add a brand new repository to management.
+**Goal:** Add a new repository to GitHub and manage it.
 
-**Participants:** Developer (editing code)
+**Time:** 5 minutes
 
-**Time:** ~10 minutes
+### Step 1: Edit repos.tfvars
 
-### Step 1: Prepare Configuration
+Open the file: `infra/repos.tfvars`
 
-Edit `infra/repos.tfvars` locally:
+Add your new repository:
 
 ```hcl
 repositories = {
-  # Existing repos...
-  
-  "payment-api" = {
-    name        = "payment-api"
+  "new-api" = {
+    name        = "new-api"
     visibility  = "private"
-    description = "Payment processing API"
-    has_issues  = true
-    has_wiki    = false
-    has_projects = false
-    archive_on_destroy = true
-    homepage_url = "https://api.example.com/payments"
-    owner       = "platform-team"
-    topics      = ["api", "payments", "go"]
-    teams       = ["platform-team", "devops-team"]
+    description = "New API service"
+    teams       = ["backend-team"]
+    topics      = ["api", "go"]
   }
 }
 ```
 
-**What each field means:**
-- `name` = GitHub repo name (must match key)
-- `visibility` = `private` or `internal`
-- `description` = Shows on GitHub
-- `has_issues` = Enable GitHub Issues
-- `has_wiki` = Enable GitHub Wiki
-- `has_projects` = Enable GitHub Projects
-- `archive_on_destroy` = Archive (not delete) if removed from config
-- `homepage_url` = External link on GitHub
-- `owner` = Team responsible (informational)
-- `topics` = GitHub searchable tags
-- `teams` = Teams with access
-
-### Step 2: Commit Locally
+### Step 2: Commit Your Changes
 
 ```bash
-cd ~/Downloads/git-repos/GitHub-enterprise-poc
-
-git checkout develop  # Make sure on develop branch
+cd ~/your-repo-path
 
 git add infra/repos.tfvars
 
-git commit -m "Add payment-api repository
-
-New repository for processing payments via external provider.
-- Private visibility for security
-- Assign to platform-team and devops-team
-- Enable issues for bug tracking"
+git commit -m "Add new-api repository"
 
 git push origin develop
 ```
 
-### Step 3: Auto-PR Created
+### Step 3: Wait for Pull Request
 
-The `manage-repos-create-pr` workflow automatically runs:
+A pull request is created automatically within 30 seconds.
 
-```
-Workflow starts
-  ↓
-Detects: develop has changes, main doesn't
-  ↓
-Checks: Is there a PR from develop → main?
-  ↓
-Result: NO → Creates new PR
-  ↓
-PR #42 opens with:
-  title: "chore: sync repos.tfvars (develop → main)"
-  body: "Repositories managed: 3"
-```
+The PR shows:
+- Title: "chore: sync repos.tfvars (develop → main)"
+- Description: "Repositories managed: 3"
 
-**In GitHub:** You see PR #42 open automatically. (Takes ~30 seconds)
+### Step 4: System Checks Your Changes
 
-### Step 4: Plan Validation Runs
-
-The `manage-repos-plan-validate` workflow runs on the PR:
+The plan workflow runs automatically. It shows:
 
 ```
-Workflow starts
-  ↓
-Runs: terraform init
-  ↓
-Runs: terraform plan -var-file=repos.tfvars
-  ↓
-Output shows:
-  + module.repository["payment-api"].github_repository.this
-  + module.repository_teams.github_team_repository["payment-api:platform-team"]
-  + module.repository_teams.github_team_repository["payment-api:devops-team"]
-  ↓
-Posts summary to PR:
-  "## Terraform Plan Summary
-   Repositories: 3
-   - payment-api (NEW)
-   ..."
+Planning to create:
+  - new-api repository
+  - new-api team assignment
 ```
 
-**In GitHub:** PR shows comment with plan details. (Takes ~20 seconds)
+This appears as a comment on your pull request.
 
-### Step 5: Review Plan
+### Step 5: Review and Merge
 
-You see in PR:
-- What will be created (payment-api repo + team assignments)
-- No errors (terraform syntax is valid)
-- Description shows 3 repos managed
+Look at the plan. Does it look correct?
 
-**Check:**
-- Is repo name correct?
-- Is visibility correct (private/internal)?
-- Are teams correct?
+- Repository name: correct?
+- Visibility: correct?
+- Teams: correct?
 
-### Step 6: Merge PR
+If yes, click "Merge pull request".
 
-Click "Merge pull request" → "Confirm merge"
+### Step 6: Changes Are Applied
 
-Git history now shows:
-```
-develop branch
-  ↓ merged ←← payment-api commit
-main branch
-```
+The apply workflow runs automatically. It creates the repository on GitHub.
 
-### Step 7: Apply Workflow Runs
-
-The `manage-repos-apply` workflow triggers automatically:
-
-```
-Workflow starts (on push to main)
-  ↓
-Checks: What changed in infra/repos.tfvars?
-  ↓
-Runs: terraform apply -auto-approve
-  ↓
-Terraform sees:
-  - "payment-api in repos.tfvars"
-  - "payment-api NOT in state"
-  → CREATE on GitHub ✅
-  ↓
-Updates state file:
-  state["payment-api"] = { id: 123456, ... }
-  ↓
-Posts success comment to PR:
-  "✅ Applied Successfully
-   Repositories managed: 3
-   - payment-api"
-```
-
-**Takes:** ~15 seconds
-
-### Step 8: Verify on GitHub
-
-Go to GitHub.com → Your org:
-- New repo "payment-api" exists ✅
-- Visibility: private ✅
-- Description: "Payment processing API" ✅
-- Teams assigned: platform-team, devops-team ✅
-- Topics: api, payments, go ✅
-
-**Result:** Repository created and managed. ✅
+**Done!** Your new repository exists and is managed.
 
 ---
 
-## Scenario 2: Import Existing Repository
+## Task 2: Import Existing Repository
 
-**Goal:** Bring existing unmanaged repo under management.
+**Goal:** Bring an existing repository into management.
 
-**Participants:** DevOps engineer (triggering workflow), Developer (adding to config)
+**Prerequisites:** Repository already exists on GitHub.
 
-**Time:** ~15 minutes
+**Time:** 10 minutes
 
-### Prerequisites
+### Step 1: Get Repository ID
 
-You have an existing repository on GitHub that's not yet managed:
-- Repo exists (you created it manually in GitHub UI)
-- Not in `repos.tfvars`
-- Terraform doesn't know about it
+Go to your GitHub repository. Click "About" (top right).
 
-### Step 1: Gather Information
+Find: "Repository ID"
 
-Go to GitHub repo → "About" section (top right):
+Example: `789012345`
 
-```
-Get: Repository ID
-Example: 789012345
-```
+Or use command:
 
-Or use CLI:
 ```bash
-gh api repos/your-org/legacy-payment-system --jq '.id'
-# Output: 789012345
+gh api repos/your-org/legacy-repo --jq '.id'
 ```
-
-**Collect:**
-- repo_name: `legacy-payment-system`
-- repo_id: `789012345`
-- visibility: `private` (or `internal`)
 
 ### Step 2: Run Import Workflow
 
-In GitHub: Go to **Actions** tab
+Go to your GitHub repository:
 
-Select: **Import Existing Repository** workflow
+1. Click **Actions** tab
+2. Select **Import Existing Repository** workflow
+3. Click **Run workflow**
+4. Fill in:
+   - repo_name: `legacy-repo`
+   - repo_id: `789012345`
+   - visibility: `private`
+5. Click **Run workflow**
 
-Click: **Run workflow**
+The workflow runs (takes 10 seconds).
 
-Fill in inputs:
-```
-repo_name: legacy-payment-system
-repo_id: 789012345
-visibility: private
-```
+### Step 3: Get the Config Block
 
-Click: **Run workflow**
+Look at the workflow results.
 
-Workflow starts running (takes ~10 seconds):
+Find the step: "Generate config template"
 
-```
-Workflow output (visible in logs):
-  ✅ Inputs valid
-  ✅ Repository found on GitHub
-  ✅ Terraform init completed
-  ✅ Import completed
-  
-  ## ✅ Repository Import Complete
-  
-  **Repo:** legacy-payment-system
-  **Repo ID:** 789012345
-  
-  ### Next Steps
-  
-  1. Copy the config block below
-  2. Edit `infra/repos.tfvars`
-  3. Paste into the `repositories` object
-  4. Commit to `develop` branch
-  5. Create PR and merge
-  6. Workflow will manage this repository automatically
-  
-  ### Config Block:
-  
-  ```hcl
-  "legacy-payment-system" = {
-    name        = "legacy-payment-system"
-    visibility  = "private"
-    description = "Imported repository"
-    has_issues  = true
-    has_wiki    = false
-    has_projects = false
-    archive_on_destroy = true
-    topics      = []
-    owner       = "your-org"
-    teams       = []
-  }
-  ```
-```
+Copy the config block. Example:
 
-**What happened:**
-- Workflow ran: `terraform import module.repository["legacy-payment-system"].github_repository.this 789012345`
-- Terraform now knows this repo exists (added to state)
-- Workflow outputs config block for manual copy-paste
-
-### Step 3: Copy Config
-
-In the workflow logs, find the "Generate config template" step.
-
-Copy the config block:
 ```hcl
-"legacy-payment-system" = {
-  name        = "legacy-payment-system"
+"legacy-repo" = {
+  name        = "legacy-repo"
   visibility  = "private"
   description = "Imported repository"
-  has_issues  = true
-  has_wiki    = false
-  has_projects = false
-  archive_on_destroy = true
-  topics      = []
-  owner       = "your-org"
   teams       = []
 }
 ```
 
-### Step 4: Edit repos.tfvars
+### Step 4: Add to repos.tfvars
 
-Locally, edit `infra/repos.tfvars`:
+Edit `infra/repos.tfvars`
 
-```hcl
-repositories = {
-  # Existing repos...
-  
-  "legacy-payment-system" = {
-    name        = "legacy-payment-system"
-    visibility  = "private"
-    description = "Imported repository"
-    has_issues  = true
-    has_wiki    = false
-    has_projects = false
-    archive_on_destroy = true
-    topics      = []
-    owner       = "your-org"
-    teams       = ["platform-team"]  ← Add team
-  }
-}
-```
-
-**Customize:**
-- Update `description` to something meaningful
-- Add `teams` as needed
-- Add `topics` for discoverability
-- Add `homepage_url` if needed
-
-### Step 5: Commit & Create PR
-
-```bash
-git add infra/repos.tfvars
-
-git commit -m "Import legacy-payment-system repository
-
-This repository was previously unmanaged. Now bringing under
-Terraform management for consistent team/permission control."
-
-git push origin develop
-```
-
-### Step 6: PR & Merge (Like Normal)
-
-Auto-PR workflow creates PR → Plan validates → User merges
-
-### Step 7: Apply & Verify
-
-Apply workflow runs:
-- Sees: "legacy-payment-system in both code AND state"
-- Action: Updates config (adds team assignment) ✅
-- Result: No creation (already existed), just updates
-
-**Verify on GitHub:**
-- Team now has access: ✅
-- Description updated: ✅
-- Topics applied: ✅
-
-**Result:** Repo now managed. Future changes go through code. ✅
-
----
-
-## Scenario 3: Update Repository Configuration
-
-**Goal:** Change settings of existing managed repo (e.g., add team, update description).
-
-**Participants:** Developer
-
-**Time:** ~5 minutes
-
-### Step 1: Identify Change
-
-Example: "The payment-api team needs access to api-server repo"
-
-### Step 2: Edit repos.tfvars
-
-```hcl
-"api-server" = {
-  name        = "api-server"
-  visibility  = "private"
-  description = "Core API service"
-  # ... other fields ...
-  teams       = ["backend-team", "devops-team", "payment-api"]  ← Added payment-api
-}
-```
-
-### Step 3: Commit & Push
-
-```bash
-git add infra/repos.tfvars
-
-git commit -m "Add payment-api team to api-server repository
-
-Granting access so payment team can deploy new payment gateway integration."
-
-git push origin develop
-```
-
-### Step 4: Auto-PR, Plan, Merge
-
-- CREATE-PR: Auto-creates PR
-- PLAN-VALIDATE: Shows `+ github_team_repository.payment-api (will be created)`
-- User merges
-
-### Step 5: Apply
-
-Apply workflow sees:
-- api-server in code ✅
-- api-server in state ✅
-- Teams changed (new entry)
-- Runs: `terraform apply`
-- Result: Adds payment-api team assignment ✅
-
-**Verify on GitHub:**
-- payment-api team now has access to api-server ✅
-
----
-
-## Scenario 4: Archive/Delete Repository
-
-**Goal:** Remove repo from management (archives on GitHub, not hard-delete).
-
-**Participants:** DevOps engineer
-
-**Time:** ~5 minutes
-
-### Step 1: Remove from repos.tfvars
+Paste the config:
 
 ```hcl
 repositories = {
   # Other repos...
   
-  # "deprecated-api" = { ... }  ← Removed (commented out or deleted)
+  "legacy-repo" = {
+    name        = "legacy-repo"
+    visibility  = "private"
+    description = "Imported repository"
+    teams       = ["your-team"]  ← Add your team
+  }
 }
 ```
 
-### Step 2: Commit & Push
+### Step 5: Commit and Push
 
 ```bash
 git add infra/repos.tfvars
 
-git commit -m "Archive deprecated-api repository
-
-This API is no longer in use. Archiving to preserve history but make read-only."
+git commit -m "Import legacy-repo into management"
 
 git push origin develop
 ```
 
-### Step 3: Auto-PR, Plan, Merge
+### Step 6: PR, Review, Merge
 
-- CREATE-PR: Auto-creates PR
-- PLAN-VALIDATE: Shows `- github_repository.deprecated-api (will be destroyed)`
-- User reviews and merges
+Same as Task 1:
+- PR is created automatically
+- Plan shows what will update
+- You merge
+- Changes are applied
 
-### Step 4: Apply
-
-Apply workflow sees:
-- deprecated-api in state ✅
-- deprecated-api NOT in code
-- Checks config: `archive_on_destroy = true`
-- Runs: `terraform apply`
-- Result: Archives on GitHub (read-only), removes from state
-
-**Verify on GitHub:**
-- deprecated-api shows as "Archived" badge ✅
-- Repo is read-only ✅
-- History preserved ✅
+**Done!** Repository is now managed.
 
 ---
 
-## Scenario 5: Bulk Operations
+## Task 3: Change Repository Settings
 
-**Goal:** Add 5 new repos at once.
+**Goal:** Update settings of an existing repository (e.g., add a team).
 
-**Participants:** Platform team
+**Time:** 5 minutes
 
-### Approach 1: One PR (Recommended)
+### Step 1: Edit repos.tfvars
+
+Find your repository in `repos.tfvars`
+
+Example: You want to add a team
+
+```hcl
+# Before:
+"api-server" = {
+  teams = ["backend-team"]
+}
+
+# After:
+"api-server" = {
+  teams = ["backend-team", "devops-team"]  ← Added devops-team
+}
+```
+
+### Step 2: Commit and Push
 
 ```bash
-# Edit repos.tfvars: add all 5 repos
 git add infra/repos.tfvars
-git commit -m "Add 5 new service repositories
 
-- auth-service
-- audit-service
-- notification-service
-- billing-service
-- metrics-service"
+git commit -m "Add devops-team to api-server repository"
+
 git push origin develop
 ```
 
-Result:
-- One PR created
-- One plan showing all 5 creations
-- One review (5 repos at once)
-- One apply (all created together)
+### Step 3: PR, Plan, Merge
 
-**Benefit:** Single review point, all or nothing.
+Same process:
+- PR created
+- Plan shows: "Will add team assignment"
+- You merge
+- Team is added to GitHub
 
-### Approach 2: Separate PRs (If risky)
+**Done!**
 
-```bash
-# Commit 1: Add auth-service
-# Create PR #50, merge
-# Wait for apply
-#
-# Commit 2: Add audit-service
-# Create PR #51, merge
-# ...repeat for each
+---
+
+## Task 4: Archive Repository
+
+**Goal:** Remove repository from management (archive on GitHub).
+
+**Time:** 5 minutes
+
+### Step 1: Remove from repos.tfvars
+
+Find the repository you want to archive.
+
+```hcl
+# Before:
+repositories = {
+  "old-api" = { ... }
+}
+
+# After:
+repositories = {
+  # "old-api" = { ... }  ← Removed (commented out)
+}
 ```
 
-**Benefit:** Safer (isolate failures), but slower.
+### Step 2: Commit and Push
+
+```bash
+git add infra/repos.tfvars
+
+git commit -m "Archive old-api repository"
+
+git push origin develop
+```
+
+### Step 3: PR, Plan, Merge
+
+- PR created
+- Plan shows: "Will destroy (archive) old-api"
+- You merge
+- Repository is archived on GitHub
+
+**Result:** Repository is read-only. Data is safe. History is preserved.
+
+---
+
+## Task 5: Add Multiple Repositories at Once
+
+**Goal:** Add several repositories in one go.
+
+**Time:** 15 minutes
+
+### Step 1: Edit repos.tfvars
+
+Add all repositories you need:
+
+```hcl
+repositories = {
+  # Existing repos...
+  
+  "auth-service" = { ... }
+  "audit-service" = { ... }
+  "billing-service" = { ... }
+}
+```
+
+### Step 2: Commit Once
+
+```bash
+git add infra/repos.tfvars
+
+git commit -m "Add three new service repositories
+
+- auth-service
+- audit-service
+- billing-service"
+
+git push origin develop
+```
+
+### Step 3: Single PR, Single Review
+
+One PR is created with all three repositories.
+
+Plan shows all three will be created.
+
+You review once. You merge once.
+
+All are applied together.
+
+**Benefit:** Single review point. All or nothing.
 
 ---
 
 ## Troubleshooting
 
-### Issue: "Invalid syntax in repos.tfvars"
+### Problem: "Invalid syntax error"
 
-**Error message:**
-```
-Error: Unsupported block type; on repos.tfvars line 5 at column 10:
-```
+**What it means:** You have a typo in repos.tfvars.
 
-**Diagnosis:**
+**Example wrong:**
 ```hcl
-# ❌ Wrong:
 "api-server" {  # ← Missing =
-
-# ✅ Right:
-"api-server" = {  # ← Needs =
 ```
 
-**Fix:** Check HCL syntax (= for assignments, not space).
+**Example correct:**
+```hcl
+"api-server" = {  # ← Has =
+```
+
+**Fix:** Read the error message. Find the line number. Fix the syntax.
 
 ---
 
-### Issue: "Repository already exists on GitHub"
+### Problem: "Repository already exists on GitHub"
 
-**Error message:**
-```
-Error: POST https://api.github.com/user/repos: 422 Repository already exists
-```
+**What it means:** You added a repository to repos.tfvars but did not import first.
 
-**Cause:** Trying to create repo, but it already exists on GitHub.
-
-**Diagnosis:**
-```
-You: "New repo creation"
-Code: "api-server in repos.tfvars"
-State: empty (doesn't know about it)
-GitHub: api-server exists (from manual creation)
-```
-
-**Fix:** Run import workflow first to bring into state.
+**What to do:**
+1. Undo your commit: `git reset HEAD~1`
+2. Run import workflow
+3. Try again
 
 ---
 
-### Issue: "terraform.tfstate corruption"
+### Problem: "Plan shows 100 changes"
 
-**Error message:**
-```
-Error reading terraform.tfstate: JSON parse error
-```
+**What it means:** GitHub was changed manually. System is detecting drift.
 
-**Cause:** State file is corrupted (hand-edited or bad merge).
+**What to do:**
+1. Review the changes
+2. If correct, merge the PR (system will fix GitHub)
+3. If incorrect, undo the GitHub changes manually first
 
-**Fix:**
+---
+
+### Problem: "Workflow failed"
+
+**What to do:**
+1. Go to Actions tab
+2. Click the failed workflow
+3. Read the error message
+4. Fix the problem
+5. Push again
+
+---
+
+## Quick Reference
+
+### Create New Repository
+
 ```bash
-# Delete corrupt state (risky!)
-rm infra/.terraform/terraform.tfstate
-
-# Re-run import for each repo
-# Workflows will rebuild state from GitHub
-```
-
----
-
-### Issue: "Apply failed but can't rollback"
-
-**Symptom:** Apply ran but errored halfway. Terraform and GitHub out of sync.
-
-**Recovery:**
-```bash
-# Option 1: Revert the PR
-git revert <commit-hash>
+Edit repos.tfvars
+git add .
+git commit -m "Add new-repo"
 git push origin develop
-# (Creates new PR to revert changes)
+# PR created automatically
+# Review plan
+# Merge PR
+# Done
+```
 
-# Option 2: Fix and re-apply
-# (Edit repos.tfvars to correct state)
-# (Commit again)
-# (New apply will sync)
+### Import Existing Repository
+
+```bash
+# 1. Run import workflow (manual)
+# 2. Copy config
+# 3. Add to repos.tfvars
+git add .
+git commit -m "Import repo-name"
+git push origin develop
+# 4. PR created, review, merge
+```
+
+### Change Repository Settings
+
+```bash
+Edit repos.tfvars
+git add .
+git commit -m "Update repo-name: add team"
+git push origin develop
+# PR created automatically
+# Review plan
+# Merge PR
+# Done
+```
+
+### Archive Repository
+
+```bash
+Remove from repos.tfvars
+git add .
+git commit -m "Archive repo-name"
+git push origin develop
+# PR created automatically
+# Review plan
+# Merge PR
+# Done (repo archived)
 ```
 
 ---
 
-### Issue: "Plan shows 100 changes (unexpected)"
+## Rules to Remember
 
-**Cause:** State file got out of sync with GitHub (e.g., someone manually changed repos).
+1. **Always use repos.tfvars.** Do not create repositories in GitHub directly.
 
-**Diagnosis:**
-```
-terraform plan sees drift between state and GitHub
-```
+2. **Import before managing.** If repository exists, import first.
 
-**Fix:**
-```bash
-# Option 1: Accept the drift and let terraform fix it
-# Merge the big plan (will synchronize everything)
+3. **Never edit terraform.tfstate.** Let the system manage it.
 
-# Option 2: Investigate what changed on GitHub
-# Revert manual changes on GitHub to match state
-# Then plan should show no changes
-```
+4. **Always commit and push.** All changes go through git.
 
----
-
-## Common Patterns
-
-### Pattern 1: Regular Reviews
-
-Run monthly:
-```bash
-terraform plan -var-file=repos.tfvars
-
-# Look for unexpected changes
-# If GitHub was manually modified, terraform will show it
-```
-
-### Pattern 2: Backup State
-
-Before big changes:
-```bash
-cp infra/.terraform/terraform.tfstate \
-   infra/.terraform/terraform.tfstate.backup
-```
-
-### Pattern 3: Test in Sandbox
-
-Before making prod changes:
-- Create test repo in repos.tfvars
-- Run workflow
-- Verify it works
-- Remove test repo
-- Then make prod changes
+5. **Review the plan.** Before merging, check what will change.
 
 ---
 
 **Version:** 1.0  
-**Last Updated:** 2026-10-08
+**Language:** Simplified Technical English
