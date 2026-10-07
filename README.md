@@ -1,260 +1,169 @@
-# GitHub Enterprise Repository Provisioning
+# GitHub Repository Management
 
-Simplified repository and team provisioning for GitHub using JSON configuration + Terraform + GitHub Actions.
-
-**No terminal needed.** Edit configuration via GitHub web UI or local editor.
+Manage all repositories from one file: `infra/repos.tfvars`
 
 ---
 
-## What This Does
+## How to Add a New Repository
 
-- ✅ **Create** new GitHub repositories with full configuration
-- ✅ **Import** existing repositories into management
-- ✅ **Update** repository settings and team access
-- ✅ **Delete** repositories safely from management
-- ✅ **Manage** GitHub teams and team access
+**Step 1:** Edit `infra/repos.tfvars`
 
-All operations through `infra/config/repositories.json` (single source of truth).
+```hcl
+repositories = {
+  "new-api" = {
+    name        = "new-api"
+    visibility  = "private"
+    description = "New API service"
+    teams       = ["backend-team"]
+    topics      = ["api", "go"]
+  }
+}
+```
 
----
+**Step 2:** Commit and push
 
-## Quick Start
-
-### 1. Edit Configuration
-
-Open `infra/config/repositories.json`:
-
-**Path A: GitHub Web UI** (easiest, no tools needed)
-- Click the file in the browser
-- Click edit (pencil icon)
-- Make changes
-- Commit to `develop` branch
-
-**Path B: Local Editor** (for developers)
 ```bash
-git clone https://github.com/your-org/repo.git
-cd repo
-git checkout develop
-# Edit infra/config/repositories.json in your editor
-git add infra/config/repositories.json
-git commit -m "Add my-repo"
+git add infra/repos.tfvars
+git commit -m "Add new-api repository"
 git push origin develop
 ```
 
-### 2. Workflows Run Automatically
+**Step 3:** Review and merge
 
-1. **Commit to develop** → Workflow creates PR (develop → main)
-2. **PR created** → Workflow validates + plans changes
-3. **Merge PR** → Workflow applies changes to GitHub
+A pull request is created automatically. Review it. Merge it.
 
----
+**Step 4:** Done
 
-## Operations Supported
-
-### Create New Repository
-
-```json
-{
-  "repositories": {
-    "my-repo": {
-      "operation": "create",
-      "name": "my-repo",
-      "visibility": "private",
-      "description": "My new repository",
-      "topics": ["microservice"],
-      "has_issues": true,
-      "has_wiki": false
-    }
-  }
-}
-```
-
-### Import Existing Repository
-
-```json
-{
-  "my-existing-repo": {
-    "operation": "import",
-    "name": "my-existing-repo",
-    "visibility": "private",
-    "import_existing": {
-      "owner": "gh-username",
-      "repo_id": 123456789
-    }
-  }
-}
-```
-
-### Update Repository Settings
-
-```json
-{
-  "my-repo": {
-    "operation": "update",
-    "name": "my-repo",
-    "description": "Updated description",
-    "topics": ["microservice", "updated"]
-  }
-}
-```
-
-### Delete Repository
-
-```json
-{
-  "my-repo": {
-    "operation": "delete",
-    "name": "my-repo",
-    "visibility": "private"
-  }
-}
-```
+The repository appears on GitHub automatically.
 
 ---
 
-## Configuration Schema
+## How to Add Existing Repository
 
-| Field | Required | Type | Notes |
-|-------|----------|------|-------|
-| `operation` | ✓ | string | `create`, `import`, `update`, `delete` |
-| `name` | ✓ | string | Repository name (lowercase, alphanumeric, hyphens) |
-| `visibility` | ✓* | string | `public` or `private` (*required for create/import) |
-| `description` | | string | Repository description |
-| `homepage_url` | | string | Homepage URL |
-| `topics` | | array | GitHub topics for discovery |
-| `has_issues` | | boolean | Enable Issues (default: true) |
-| `has_wiki` | | boolean | Enable Wiki (default: false) |
-| `has_projects` | | boolean | Enable Projects (default: false) |
-| `archive_on_destroy` | | boolean | Archive instead of delete (default: true) |
-| `owner` | | string | Team or user responsible (recommended) |
-| `teams` | | array | Teams with access |
-| `branch_protection` | | object | Branch protection rules |
-| `import_existing` | | object | For import ops: `owner`, `repo_id` |
+**Step 1:** Run import workflow
+
+Go to Actions tab. Select "Import Existing Repository". Fill in:
+- repo_name: `legacy-api`
+- repo_id: `789012345`
+- visibility: `private`
+
+Click "Run workflow".
+
+**Step 2:** Copy the config
+
+The workflow shows a config block. Copy it.
+
+**Step 3:** Add to repos.tfvars
+
+```hcl
+repositories = {
+  "legacy-api" = {
+    name        = "legacy-api"
+    visibility  = "private"
+    description = "Imported repository"
+    teams       = ["platform-team"]
+  }
+}
+```
+
+**Step 4:** Commit and push
+
+```bash
+git add infra/repos.tfvars
+git commit -m "Import legacy-api"
+git push origin develop
+```
+
+**Step 5:** Merge PR
+
+A pull request is created. Merge it.
+
+**Step 6:** Done
+
+Repository is now managed.
 
 ---
 
-## Workflows
+## How to Add a New Team
 
-### 1. Create PR (Automatic)
-- **Trigger:** Push to `develop` with changes to `infra/config/repositories.json`
-- **Action:** Creates PR (develop → main) with summary
-- **Example title:** "Repository changes: create 1, import 1, update 1"
+**Step 1:** Edit `infra/repos.tfvars`
 
-### 2. Plan & Validate (Automatic)
-- **Trigger:** PR created/updated OR user types `/plan` comment
-- **Action:** 
-  - Validates JSON schema
-  - Handles imports (terraform import)
-  - Generates terraform plan
-  - Posts plan summary to PR (smart comment, no spam)
+Add the team to the `teams` field:
 
-### 3. Apply (Automatic)
-- **Trigger:** Merge to `main`
-- **Action:**
-  - Handles imports (terraform import)
-  - Runs terraform apply (creates/updates)
-  - Handles deletes (terraform destroy)
-  - Posts success comment on original PR
+```hcl
+"api-server" = {
+  teams = ["backend-team", "new-team"]  ← Added new team
+}
+```
+
+**Step 2:** Commit and push
+
+```bash
+git add infra/repos.tfvars
+git commit -m "Add new-team to api-server"
+git push origin develop
+```
+
+**Step 3:** Merge PR
+
+A pull request is created. Review it. Merge it.
+
+**Step 4:** Done
+
+The team now has access to the repository.
+
+---
+
+## How to Add Existing Team
+
+**Step 1:** Edit `infra/repos.tfvars`
+
+Add the existing team to the `teams` field:
+
+```hcl
+"api-server" = {
+  teams = ["backend-team", "existing-team"]  ← Added existing team
+}
+```
+
+**Step 2:** Commit and push
+
+```bash
+git add infra/repos.tfvars
+git commit -m "Add existing-team to api-server"
+git push origin develop
+```
+
+**Step 3:** Merge PR
+
+A pull request is created. Review it. Merge it.
+
+**Step 4:** Done
+
+The team now has access to the repository.
 
 ---
 
 ## Documentation
 
-- **Full user guide:** [`conf/CONTRIBUTING.md`](conf/CONTRIBUTING.md)
-- **Architecture & rationale:** [`conf/docs/DECISION.md`](conf/docs/DECISION.md)
-- **JSON schema reference:** [`infra/config/schema.json`](infra/config/schema.json)
-- **Example config:** [`infra/config/repositories.json`](infra/config/repositories.json)
+For detailed information, read:
+
+- **System overview:** `conf/repository-management/ARCHITECTURE.md`
+- **Design philosophy:** `conf/repository-management/DESIGN_PRINCIPLES.md`
+- **Step-by-step guides:** `conf/repository-management/SCENARIOS.md`
+- **Import workflow:** `conf/IMPORT_WORKFLOW.md`
 
 ---
 
-## Troubleshooting
+## Quick Reference
 
-### JSON Validation Error
-- Check for missing commas, mismatched quotes
-- Use GitHub editor (highlights syntax errors)
-- See [`conf/CONTRIBUTING.md`](conf/CONTRIBUTING.md) for common issues
-
-### Import Failed
-- Verify `import_existing.repo_id` is correct
-- Ensure repository exists in GitHub
-- Check workflows tab for error details
-
-### Delete Not Working
-- Verify `operation: "delete"` is set
-- Check workflow logs (Actions tab)
-- Deletion happens automatically on merge to main
-
-### Workflow Stuck
-1. Go to **Actions** tab
-2. Find the failed workflow
-3. Expand failed step for error details
-4. Common issue: `GH_TOKEN` missing `repo` + `admin:org` scopes
+| Action | File | Location |
+|--------|------|----------|
+| Add new repo | `repos.tfvars` | `infra/repos.tfvars` |
+| Import repo | Import workflow | Actions tab |
+| Add team | `repos.tfvars` | `infra/repos.tfvars` |
+| Remove repo | Edit `repos.tfvars` | Remove the repo entry |
 
 ---
 
-## Architecture
-
-```
-infra/config/repositories.json (user edits here)
-           ↓
-.github/workflows/manage-repos-plan-validate.yml
-           ↓
-terraform import (for import ops)
-           ↓
-terraform plan
-           ↓
-PR comment with plan summary
-           ↓
-User reviews + merges
-           ↓
-.github/workflows/manage-repos-apply.yml
-           ↓
-terraform apply (creates/updates)
-terraform destroy (for deletes)
-           ↓
-GitHub repositories updated ✓
-```
-
----
-
-## Development
-
-**Repository structure:**
-- `.github/workflows/` — GitHub Actions workflows (3 workflows)
-- `apps/scripts/` — Helper scripts (validation, terraform var generation)
-- `infra/config/` — Configuration (repositories.json, schema.json)
-- `infra/modules/` — Terraform modules (repository, teams)
-- `conf/` — Documentation (CONTRIBUTING.md, DECISION.md)
-
-**Running locally:**
-```bash
-# Validate config
-python3 apps/scripts/validate_schema.py infra/config/repositories.json
-
-# Generate terraform vars
-python3 apps/scripts/generate_tfvars.py infra/config/repositories.json repos.tfvars
-
-# Plan changes (requires GitHub token)
-cd infra
-terraform init
-terraform plan -var-file=../repos.tfvars -var github_owner=your-org
-```
-
----
-
-## Support
-
-For errors:
-1. **Actions tab** → Select workflow → View logs
-2. **PR comments** → Check validation results + plan summary
-3. **Documentation** → See [`conf/CONTRIBUTING.md`](conf/CONTRIBUTING.md)
-
-For GitHub API issues:
-- Verify token has `repo` + `admin:org` scopes
-- Check rate limits: `gh api rate_limit`
-
----
-
-**Last Updated:** 2026-10-07  
-**System Status:** ✅ Production Ready  
-**Operations Supported:** Create, Import, Update, Delete
+**System Status:** ✅ Production Ready
