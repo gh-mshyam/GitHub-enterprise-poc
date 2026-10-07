@@ -120,7 +120,7 @@ terraform apply -var-file=repos.tfvars
 
 ## Acceptance Criteria
 
-- [x] Schema defined (repositories.json.schema.json)
+- [x] Schema defined (infra/config/schema.json)
 - [x] Example config provided
 - [x] Workflow validates + plans automatically
 - [x] CONTRIBUTING.md updated (no terminal required)

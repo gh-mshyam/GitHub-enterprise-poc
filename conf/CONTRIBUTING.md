@@ -2,13 +2,13 @@
 
 ## Overview
 
-Repository management is now simplified through **repositories.json**, a single source of truth for all repository configurations. No terminal commands needed—only GitHub UI.
+Repository management is now simplified through **infra/config/repositories.json**, a single source of truth for all repository configurations. No terminal commands needed—only GitHub UI.
 
 ## Workflow: Add/Update/Delete a Repository
 
 ### Two Paths — Choose One
 
-You can edit `repositories.json` **two ways:**
+You can edit `infra/config/repositories.json` **two ways:**
 
 #### Path A: GitHub Web UI (Easiest)
 - No local tools needed
@@ -18,13 +18,13 @@ You can edit `repositories.json` **two ways:**
 
 #### Path B: Local Editor + Git (For Developers)
 - Clone repo locally
-- Edit `repositories.json` in your editor
+- Edit `infra/config/repositories.json` in your editor
 - Commit changes
 - Push to develop branch
 
 ### Step 1: Edit repositories.json
 
-Open `repositories.json` in GitHub UI editor OR your local text editor.
+Open `infra/config/repositories.json` in GitHub UI editor OR your local text editor.
 
 **Create a new repository:**
 ```json
@@ -89,7 +89,7 @@ Open `repositories.json` in GitHub UI editor OR your local text editor.
 ### Step 2: Commit to develop
 
 #### Option A: GitHub Web UI
-1. Click the edit (pencil) icon on `repositories.json`
+1. Click the edit (pencil) icon on `infra/config/repositories.json`
 2. Make your changes
 3. Scroll down, add commit message: "Add my-new-repo"
 4. Choose "Commit directly to develop branch"
@@ -105,11 +105,11 @@ cd repo
 git checkout develop
 git pull origin develop
 
-# Edit repositories.json
+# Edit infra/config/repositories.json
 # (use your editor: VS Code, vim, etc.)
 
 # Commit changes
-git add repositories.json
+git add infra/config/repositories.json
 git commit -m "Add my-new-repo"
 
 # Push to develop
@@ -119,7 +119,7 @@ git push origin develop
 ### Step 3: Create Pull Request
 
 The workflow runs automatically after commit to develop:
-1. GitHub Actions validates `repositories.json`
+1. GitHub Actions validates `infra/config/repositories.json`
 2. Generates terraform plan
 3. Creates a PR: `develop` → `main` (this triggers validation)
 4. The workflow runs automatically:
@@ -173,7 +173,7 @@ For risky operations (Tier 1), a human review is required before merge.
 ```
 Click edit pencil icon
          ↓
-Edit repositories.json in browser
+Edit infra/config/repositories.json in browser
          ↓
 Commit directly to develop
          ↓
@@ -192,7 +192,7 @@ Repositories created ✓
 ```
 git checkout develop
          ↓
-Edit repositories.json locally
+Edit infra/config/repositories.json locally
          ↓
 git commit + git push
          ↓

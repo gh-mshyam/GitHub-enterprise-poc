@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - repositories.json
+      - infra/config/repositories.json
 
 permissions:
   contents: read
@@ -25,11 +25,11 @@ jobs:
           import json
           from pathlib import Path
 
-          config = json.loads(Path("repositories.json").read_text())
+          config = json.loads(Path("infra/config/repositories.json").read_text())
           repositories = config.get("repositories", {})
 
           lines = [
-            '# Auto-generated from repositories.json',
+            '# Auto-generated from infra/config/repositories.json',
             'repositories = {',
           ]
 
@@ -102,7 +102,7 @@ jobs:
           import json
           from pathlib import Path
 
-          config = json.loads(Path("repositories.json").read_text())
+          config = json.loads(Path("infra/config/repositories.json").read_text())
           repos = config.get("repositories", {})
 
           created = [r for r in repos.values() if r.get("operation") == "create"]

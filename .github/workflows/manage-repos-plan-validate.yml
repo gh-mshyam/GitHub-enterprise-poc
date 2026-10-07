@@ -5,7 +5,7 @@ on:
     branches: [main]
     types: [opened, synchronize]
     paths:
-      - repositories.json
+      - infra/config/repositories.json
   issue_comment:
     types: [created, edited]
 
@@ -36,7 +36,7 @@ jobs:
           from pathlib import Path
 
           try:
-            config = json.loads(Path("repositories.json").read_text())
+            config = json.loads(Path("infra/config/repositories.json").read_text())
             if "repositories" not in config:
               print("❌ Missing 'repositories' key")
               sys.exit(1)
@@ -65,7 +65,7 @@ jobs:
           import json
           from pathlib import Path
 
-          config = json.loads(Path("repositories.json").read_text())
+          config = json.loads(Path("infra/config/repositories.json").read_text())
           repositories = config.get("repositories", {})
 
           lines = [
@@ -120,7 +120,7 @@ jobs:
           from datetime import datetime
 
           try:
-            config = json.loads(Path("repositories.json").read_text())
+            config = json.loads(Path("infra/config/repositories.json").read_text())
             repos = config.get("repositories", {})
 
             create = [r for r in repos.values() if r.get("operation") == "create"]

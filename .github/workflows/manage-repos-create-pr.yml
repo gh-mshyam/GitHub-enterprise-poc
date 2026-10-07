@@ -4,7 +4,7 @@ on:
   push:
     branches: [develop]
     paths:
-      - repositories.json
+      - infra/config/repositories.json
 
 permissions:
   contents: read
@@ -28,7 +28,7 @@ jobs:
           import json
           from pathlib import Path
 
-          config = json.loads(Path("repositories.json").read_text())
+          config = json.loads(Path("infra/config/repositories.json").read_text())
           repos = config.get("repositories", {})
 
           create_count = len([r for r in repos.values() if r.get("operation") == "create"])
