@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  # TODO: Add id-token: write for AWS OIDC (fetch GitHub token from Secrets Manager)
 
 jobs:
   import:
@@ -62,6 +63,7 @@ jobs:
 
       - name: Terraform init
         shell: bash
+        # TODO: Add S3 backend configuration when infra/backend.tf is created
         run: |
           cd infra
           terraform init -upgrade=false

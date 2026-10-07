@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  # TODO: Add id-token: write for AWS OIDC (fetch GitHub token from Secrets Manager)
 
 jobs:
   plan-validate:
@@ -29,12 +30,14 @@ jobs:
 
       - name: Terraform init
         shell: bash
+        # TODO: Add S3 backend configuration when infra/backend.tf is created
         run: |
           cd infra
           terraform init -upgrade=false
 
       - name: Create terraform plan
         shell: bash
+        # TODO: Replace secrets.GITHUB_TOKEN with AWS Secrets Manager retrieval (use OIDC role assumption)
         env:
           TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}

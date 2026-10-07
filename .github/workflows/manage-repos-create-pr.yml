@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  # TODO: Add id-token: write for AWS OIDC (fetch GitHub token from Secrets Manager)
 
 jobs:
   create-pr:
