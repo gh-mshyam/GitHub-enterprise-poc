@@ -1,0 +1,205 @@
+name: Plan & Validate Repository Changes
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+    paths:
+      - repositories.json
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan-validate:
+    name: Validate and Plan
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, '/plan') &&
+       github.event.issue.pull_request)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate JSON schema
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import sys
+          from pathlib import Path
+
+          try:
+            config = json.loads(Path("repositories.json").read_text())
+            if "repositories" not in config:
+              print("❌ Missing 'repositories' key")
+              sys.exit(1)
+
+            for repo_id, repo in config["repositories"].items():
+              if "operation" not in repo:
+                print(f"❌ {repo_id}: Missing 'operation'")
+                sys.exit(1)
+              if "name" not in repo:
+                print(f"❌ {repo_id}: Missing 'name'")
+                sys.exit(1)
+              if "visibility" not in repo:
+                print(f"❌ {repo_id}: Missing 'visibility'")
+                sys.exit(1)
+
+            print("✅ JSON validation passed")
+          except Exception as e:
+            print(f"❌ Validation error: {e}")
+            sys.exit(1)
+          PYTHON_EOF
+
+      - name: Generate terraform vars
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("repositories.json").read_text())
+          repositories = config.get("repositories", {})
+
+          lines = [
+            '# Auto-generated from repositories.json',
+            'repositories = {',
+          ]
+
+          for repo_id, repo in repositories.items():
+            if repo.get("operation") == "delete":
+              continue
+
+            lines.append(f'  "{repo_id}" = {{')
+            lines.append(f'    name       = "{repo.get("name", repo_id)}"')
+            lines.append(f'    visibility = "{repo.get("visibility", "private")}"')
+
+            if repo.get("description"):
+              lines.append(f'    description = "{repo["description"]}"')
+
+            if repo.get("topics"):
+              topics = ', '.join([f'"{t}"' for t in repo["topics"]])
+              lines.append(f'    topics = [{topics}]')
+
+            if repo.get("teams"):
+              teams = ', '.join([f'"{t}"' for t in repo["teams"]])
+              lines.append(f'    teams = [{teams}]')
+
+            lines.append('  }')
+
+          lines.append('}')
+          Path("repos.tfvars").write_text('\n'.join(lines))
+          print("✅ Generated repos.tfvars")
+          PYTHON_EOF
+
+      - name: Create terraform plan
+        shell: bash
+        run: |
+          cd infra
+          terraform init -upgrade=false
+          terraform plan -var-file=../repos.tfvars -json > tfplan.json 2>&1 || true
+
+          # Convert to readable format
+          terraform show -json tfplan.json | jq '.' > tfplan_readable.json || true
+          echo "✅ Terraform plan completed"
+
+      - name: Build plan summary
+        id: plan_summary
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          from pathlib import Path
+
+          try:
+            config = json.loads(Path("repositories.json").read_text())
+            repos = config.get("repositories", {})
+
+            create = [r for r in repos.values() if r.get("operation") == "create"]
+            import_repos = [r for r in repos.values() if r.get("operation") == "import"]
+            update = [r for r in repos.values() if r.get("operation") == "update"]
+            delete = [r for r in repos.values() if r.get("operation") == "delete"]
+
+            summary = "## Terraform Plan Summary\n\n"
+
+            if create:
+              summary += f"**Create ({len(create)}):**\n"
+              for r in create:
+                summary += f"- `{r['name']}` ({r.get('visibility', 'private')})\n"
+              summary += "\n"
+
+            if import_repos:
+              summary += f"**Import ({len(import_repos)}):**\n"
+              for r in import_repos:
+                summary += f"- `{r['name']}` (import repo_id: {r.get('import_existing', {}).get('repo_id')})\n"
+              summary += "\n"
+
+            if update:
+              summary += f"**Update ({len(update)}):**\n"
+              for r in update:
+                summary += f"- `{r['name']}`\n"
+              summary += "\n"
+
+            if delete:
+              summary += f"**Delete ({len(delete)}):**\n"
+              for r in delete:
+                summary += f"- `{r['name']}` ⚠️ DESTRUCTIVE\n"
+              summary += "\n"
+
+            if not (create or import_repos or update or delete):
+              summary += "No changes.\n"
+
+            summary += f"\n✅ Updated at {pd.Timestamp.now().isoformat()}"
+
+            print(summary)
+            Path("plan_summary.txt").write_text(summary)
+          except Exception as e:
+            print(f"Error: {e}")
+          PYTHON_EOF
+
+      - name: Find or create comment
+        id: comment
+        shell: bash
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number || github.event.issue.number }}
+
+          # Search for existing comment
+          COMMENT_ID=$(gh pr view $PR_NUMBER \
+            --json comments \
+            --jq '.comments[] | select(.body | contains("Terraform Plan Summary")) | .id' \
+            2>/dev/null | head -1)
+
+          if [ -z "$COMMENT_ID" ]; then
+            echo "NEW_COMMENT=true" >> $GITHUB_OUTPUT
+          else
+            echo "COMMENT_ID=$COMMENT_ID" >> $GITHUB_OUTPUT
+            echo "UPDATE_COMMENT=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post plan to PR
+        shell: bash
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number || github.event.issue.number }}
+          PLAN_CONTENT=$(cat plan_summary.txt)
+
+          if [ "${{ steps.comment.outputs.UPDATE_COMMENT }}" == "true" ]; then
+            gh pr comment $PR_NUMBER \
+              --edit ${{ steps.comment.outputs.COMMENT_ID }} \
+              --body "$PLAN_CONTENT"
+            echo "✅ Comment updated"
+          else
+            gh pr comment $PR_NUMBER \
+              --body "$PLAN_CONTENT"
+            echo "✅ Comment created"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
