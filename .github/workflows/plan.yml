@@ -42,12 +42,12 @@ jobs:
           terraform_version: "1.9.8"
 
       - name: Terraform Init
-        working-directory: infra
+        working-directory: infra/default
         run: terraform init -input=false
 
       - name: Terraform Plan
         id: plan
-        working-directory: infra
+        working-directory: infra/default
         continue-on-error: true
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}

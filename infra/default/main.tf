@@ -12,7 +12,7 @@ terraform {
   # the repo by apply.yml for demo visibility, not a production pattern
   # (no locking, no encryption at rest, no drift protection between runs).
   backend "local" {
-    path = "infra/terraform.tfstate"
+    path = "terraform.tfstate"
   }
 }
 

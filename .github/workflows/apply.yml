@@ -18,10 +18,10 @@ jobs:
           terraform_version: 1.9.8
       
       - name: Terraform Init
-        run: cd infra && terraform init -input=false
-      
+        run: cd infra/default && terraform init -input=false
+
       - name: Terraform Apply
-        run: cd infra && terraform apply -auto-approve -input=false -parallelism=1 -var="github_token=${{ secrets.GH_PROVISIONING_TOKEN }}" -var="github_owner=${{ github.repository_owner }}" -var-file=repositories/repos.tfvars
+        run: cd infra/default && terraform apply -auto-approve -input=false -parallelism=1 -var="github_token=${{ secrets.GH_PROVISIONING_TOKEN }}" -var="github_owner=${{ github.repository_owner }}" -var-file=repositories/repos.tfvars
         env:
           TF_VAR_github_token: ${{ secrets.GH_PROVISIONING_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
@@ -30,8 +30,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ -f infra/terraform.tfstate ]; then
-            git add -f infra/terraform.tfstate
+          if [ -f infra/default/terraform.tfstate ]; then
+            git add -f infra/default/terraform.tfstate
             git diff --cached --quiet || git commit -m "chore: update terraform state [skip ci]"
             git push
           fi
