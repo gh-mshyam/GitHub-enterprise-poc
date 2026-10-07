@@ -62,6 +62,8 @@ Then:
 
 If you have repositories already on GitHub that you want to manage through Terraform:
 
+**→ For detailed import procedures, see [`apps/scripts/IMPORT_WORKFLOW.md`](../../apps/scripts/IMPORT_WORKFLOW.md)**
+
 **Option A: Automatic (recommended)**
 
 1. Go to **Actions** tab
