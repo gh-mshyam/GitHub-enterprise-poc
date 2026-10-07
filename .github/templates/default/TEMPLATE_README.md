@@ -11,6 +11,7 @@ This folder contains the standard template for new repositories created via the 
 - ✅ `infra/default/` — Terraform infrastructure template
 - ✅ `config.yml` — Repository configuration
 - ✅ `prisma-cloud-config.yml` — Security scanning config
+- ✅ `conf/` — Human-friendly documentation
 - ✅ `README.md` — Project documentation
 
 ## Workflows Included
@@ -44,11 +45,17 @@ When a new repository is created via provisioning with `repository_template = "g
 
 ```
 new-repository/
-├── .github/workflows/ci.yml → CI/CD child workflows
-├── .github/workflows/deploy.yml → Deployment workflows
-├── apps/apps.json → Application manifest
-├── infra/default/main.tf → Terraform template
-├── infra/default/variables.tf → Terraform variables
+├── .github/workflows/
+│   ├── ci.yml → CI/CD child workflows
+│   └── deploy.yml → Deployment workflows
+├── apps/
+│   └── apps.json → Application manifest
+├── conf/
+│   ├── ARCHITECTURE.md → System design & folder structure
+│   └── CONTRIBUTING.md → Contribution & development guide
+├── infra/default/
+│   ├── main.tf → Terraform template
+│   └── variables.tf → Terraform variables
 ├── config.yml → Repository config
 ├── prisma-cloud-config.yml → Security policies
 ├── Jenkinsfile → Jenkins pipeline
@@ -73,11 +80,29 @@ After a new repository is created from this template:
 | `.github/workflows/ci.yml` | Lint, test, validate |
 | `.github/workflows/deploy.yml` | Infrastructure deployment |
 | `apps/apps.json` | Application manifest |
+| `conf/ARCHITECTURE.md` | System design, folder structure, and technical decisions |
+| `conf/CONTRIBUTING.md` | How to make changes, development workflows, troubleshooting |
 | `infra/default/main.tf` | Infrastructure code |
 | `infra/default/variables.tf` | Terraform variables |
 | `config.yml` | Repository configuration |
 | `prisma-cloud-config.yml` | Security scanning rules |
 | `README.md` | Project documentation |
+
+### conf/ Documentation
+
+The `conf/` folder contains human-friendly documentation for the repository:
+
+- **`ARCHITECTURE.md`** — Technical overview and design decisions
+  - Folder structure and organization
+  - Data flow and workflows
+  - Component descriptions
+  - Design rationale
+
+- **`CONTRIBUTING.md`** — Contribution and development guide
+  - How to make changes
+  - Local development setup
+  - Code review checklist
+  - Troubleshooting procedures
 
 ## Next Steps
 
