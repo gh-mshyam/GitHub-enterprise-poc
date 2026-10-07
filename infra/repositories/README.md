@@ -1,61 +1,169 @@
-# Repositories Configuration
+# Repository Configuration
 
-This directory contains Terraform variable files for managing GitHub resources via the unified provisioning workflow.
+> **Note:** This folder contains old tfvars files from previous implementation. **The current system uses `infra/config/repositories.json` as the single source of truth.**
 
-## Files
+---
 
-### `repos.tfvars`
-Defines **new repositories** to create in the GitHub organization.
+## Current System: repositories.json
 
-Usage:
-```bash
-terraform plan -var-file=repositories/repos.tfvars
+All repository, team, and import management is now done through:
+
+**`infra/config/repositories.json`** — Single source of truth
+
+See:
+- [`infra/config/repositories.json`](../config/repositories.json) — Configuration file
+- [`infra/config/schema.json`](../config/schema.json) — Schema definition
+- [`conf/CONTRIBUTING.md`](../../conf/CONTRIBUTING.md) — User guide
+
+---
+
+## Legacy Files (No Longer Used)
+
+This directory contains old configuration files from the previous implementation:
+
+- `repos.tfvars` — Deprecated (use repositories.json instead)
+- `teams.tfvars` — Deprecated (use repositories.json instead)
+- `imports.tfvars` — Deprecated (use repositories.json instead)
+
+**These files are kept for reference only and are not used by workflows.**
+
+---
+
+## How to Make Changes
+
+### Via GitHub Web UI (No Tools Needed)
+
+1. Open [`infra/config/repositories.json`](../config/repositories.json)
+2. Click edit (pencil icon)
+3. Add/modify repository entries
+4. Commit to `develop` branch
+5. Workflow creates PR automatically
+6. Review → Merge → Done ✓
+
+### Via Local Editor
+
+1. Clone repository
+2. Edit `infra/config/repositories.json`
+3. Commit to `develop` branch
+4. Push
+5. Workflow creates PR automatically
+6. Review → Merge → Done ✓
+
+---
+
+## Examples
+
+### Create Repository
+
+```json
+{
+  "repositories": {
+    "my-service": {
+      "operation": "create",
+      "name": "my-service",
+      "visibility": "private",
+      "description": "My microservice"
+    }
+  }
+}
 ```
 
-### `teams.tfvars`
-Defines **GitHub teams**, their members, and repository access.
+### Import Existing Repository
 
-Usage:
-```bash
-terraform plan -var-file=repositories/teams.tfvars
+```json
+{
+  "legacy-repo": {
+    "operation": "import",
+    "name": "legacy-repo",
+    "visibility": "private",
+    "import_existing": {
+      "owner": "gh-mshyam",
+      "repo_id": 123456789
+    }
+  }
+}
 ```
 
-### `imports.tfvars`
-Defines **existing repositories** to import into Terraform management.
+### Update Repository
 
-Usage:
-1. Add repository config to `imports.tfvars`
-2. Run `terraform import` to bind the existing repo:
-   ```bash
-   terraform import 'module.repository["repo-name"].github_repository.this' 'repo-name'
-   ```
-3. Commit and push
-4. Workflows will manage it via `imports.tfvars`
-
-## Quick Start
-
-1. **Create a new repository:**
-   - Add entry to `repos.tfvars`
-   - Create a PR
-   - On merge, workflows apply the changes
-
-2. **Create a new team:**
-   - Add entry to `teams.tfvars`
-   - Create a PR
-   - On merge, workflows apply the changes
-
-3. **Import an existing repository:**
-   - Add entry to `imports.tfvars`
-   - Follow import steps above
-   - Commit changes
-   - On merge, Terraform will manage it
-
-## Workflow Integration
-
-Workflows automatically detect changed `.tfvars` files and apply them. For manual runs:
-
-```bash
-cd infra
-terraform plan -var-file=repositories/repos.tfvars
-terraform apply -var-file=repositories/repos.tfvars
+```json
+{
+  "my-service": {
+    "operation": "update",
+    "name": "my-service",
+    "description": "Updated description"
+  }
+}
 ```
+
+### Delete Repository
+
+```json
+{
+  "my-service": {
+    "operation": "delete",
+    "name": "my-service",
+    "visibility": "private"
+  }
+}
+```
+
+---
+
+## Workflow
+
+```
+Edit infra/config/repositories.json
+    ↓
+Commit to develop branch
+    ↓
+Workflow creates PR (develop → main)
+    ↓
+Workflow validates + generates plan
+    ↓
+PR comment shows plan summary
+    ↓
+Review PR → Merge to main
+    ↓
+Workflow applies changes automatically
+    ├─ Creates new repositories
+    ├─ Imports existing repositories
+    ├─ Updates repository settings
+    └─ Deletes repositories
+    ↓
+Done ✓
+```
+
+---
+
+## Troubleshooting
+
+### "JSON validation failed"
+- Check syntax (missing commas, quotes, brackets)
+- Use GitHub editor (shows syntax errors)
+- See [`conf/CONTRIBUTING.md`](../../conf/CONTRIBUTING.md) for help
+
+### "Operation failed"
+- Check workflow logs (Actions tab)
+- Verify configuration is correct
+- See [`conf/CONTRIBUTING.md`](../../conf/CONTRIBUTING.md)
+
+### "Workflow not running"
+- Ensure commit is to `develop` branch
+- Ensure `infra/config/repositories.json` is modified
+- Workflows trigger on changes to this file only
+
+---
+
+## Full Documentation
+
+- **User Guide:** [`conf/CONTRIBUTING.md`](../../conf/CONTRIBUTING.md)
+- **Architecture:** [`conf/docs/DECISION.md`](../../conf/docs/DECISION.md)
+- **Workflows:** [`.github/workflows/`](../../.github/workflows/)
+- **Schema:** [`infra/config/schema.json`](../config/schema.json)
+
+---
+
+**Last Updated:** 2026-10-07  
+**Current System:** repositories.json + JSON Schema + Workflows  
+**Status:** ✅ Production Ready
