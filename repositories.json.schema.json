@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Repository Management Schema",
+  "description": "Single source of truth for repository configuration (replace repos.tfvars + imports.tfvars)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version (for migrations)",
+      "default": "1.0"
+    },
+    "repositories": {
+      "type": "object",
+      "description": "Map of repository ID to configuration",
+      "additionalProperties": {
+        "$ref": "#/definitions/repository"
+      }
+    }
+  },
+  "required": ["repositories"],
+  "definitions": {
+    "repository": {
+      "type": "object",
+      "description": "Single repository configuration",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": ["create", "import", "update", "delete"],
+          "description": "Action to take on this repository"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+          "description": "Repository name (alphanumeric, hyphens only)"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"],
+          "description": "Repository visibility"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Repository description"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Team or user that owns this repo (for access control)"
+        },
+        "topics": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "GitHub topics for discovery"
+        },
+        "branch_protection": {
+          "type": "object",
+          "description": "Branch protection rules",
+          "properties": {
+            "main_branch": {
+              "type": "string",
+              "default": "main",
+              "description": "Branch name to protect"
+            },
+            "require_pr_reviews": {
+              "type": "boolean",
+              "default": true
+            },
+            "dismiss_stale_reviews": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "auto_merge_develop_to_main": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-merge develop → main on PR approval"
+        },
+        "teams": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Teams with access (admin, maintain, triage, pull)"
+        },
+        "custom_files": {
+          "type": "object",
+          "description": "Custom files to create/template (key=path, value=template_name)",
+          "additionalProperties": { "type": "string" }
+        },
+        "import_existing": {
+          "type": "object",
+          "description": "For 'import' operation: source info",
+          "properties": {
+            "owner": { "type": "string" },
+            "repo_id": { "type": "number" }
+          }
+        }
+      },
+      "required": ["operation", "name", "visibility"]
+    }
+  }
+}

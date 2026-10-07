@@ -1,0 +1,189 @@
+name: Manage Repositories
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - repositories.json
+      - .github/workflows/manage-repos.yml
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Operation type"
+        required: true
+        type: choice
+        options: ["plan", "validate"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate repositories.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Validate JSON schema
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import sys
+          from pathlib import Path
+
+          # Read repositories.json
+          try:
+              config = json.loads(Path("repositories.json").read_text())
+              print(f"✓ JSON valid")
+          except json.JSONDecodeError as e:
+              print(f"✗ JSON parse error: {e}")
+              sys.exit(1)
+
+          # Validate required fields
+          if "repositories" not in config:
+              print("✗ Missing 'repositories' key")
+              sys.exit(1)
+
+          if not isinstance(config["repositories"], dict):
+              print("✗ 'repositories' must be an object")
+              sys.exit(1)
+
+          # Validate each repository
+          valid_operations = {"create", "import", "update", "delete"}
+          valid_visibility = {"public", "private"}
+          error_count = 0
+
+          for repo_id, repo_config in config["repositories"].items():
+              print(f"\nValidating repository: {repo_id}")
+
+              # Check required fields
+              if "operation" not in repo_config:
+                  print(f"  ✗ Missing 'operation' field")
+                  error_count += 1
+              elif repo_config["operation"] not in valid_operations:
+                  print(f"  ✗ Invalid operation: {repo_config['operation']}")
+                  error_count += 1
+              else:
+                  print(f"  ✓ operation: {repo_config['operation']}")
+
+              if "name" not in repo_config:
+                  print(f"  ✗ Missing 'name' field")
+                  error_count += 1
+              else:
+                  name = repo_config["name"]
+                  # Validate name format
+                  if not name.replace("-", "").isalnum() or name.startswith("-") or name.endswith("-"):
+                      print(f"  ✗ Invalid name format: {name}")
+                      error_count += 1
+                  else:
+                      print(f"  ✓ name: {name}")
+
+              if "visibility" not in repo_config:
+                  print(f"  ✗ Missing 'visibility' field")
+                  error_count += 1
+              elif repo_config["visibility"] not in valid_visibility:
+                  print(f"  ✗ Invalid visibility: {repo_config['visibility']}")
+                  error_count += 1
+              else:
+                  print(f"  ✓ visibility: {repo_config['visibility']}")
+
+              # Validate operation-specific requirements
+              if repo_config.get("operation") == "import":
+                  if "import_existing" not in repo_config:
+                      print(f"  ✗ Import requires 'import_existing' field")
+                      error_count += 1
+                  else:
+                      print(f"  ✓ import_existing configured")
+
+          if error_count > 0:
+              print(f"\n✗ Validation failed: {error_count} error(s)")
+              sys.exit(1)
+          else:
+              print(f"\n✓ All repositories valid")
+          PYTHON_EOF
+
+      - name: Generate plan summary
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          from pathlib import Path
+
+          config = json.loads(Path("repositories.json").read_text())
+          repos = config["repositories"]
+
+          print("## Repository Operations Summary\n")
+
+          # Count by operation
+          ops = {}
+          for repo_id, repo in repos.items():
+              op = repo.get("operation", "unknown")
+              ops[op] = ops.get(op, 0) + 1
+
+          for op, count in sorted(ops.items()):
+              print(f"- **{op.upper()}**: {count} repository(ies)")
+
+          # List each operation
+          for op in ["create", "import", "update", "delete"]:
+              repos_with_op = {rid: r for rid, r in repos.items() if r.get("operation") == op}
+              if repos_with_op:
+                  print(f"\n### {op.upper()}")
+                  for repo_id, repo in repos_with_op.items():
+                      print(f"- `{repo['name']}` ({repo.get('visibility', 'unknown')})")
+                      if repo.get("description"):
+                          print(f"  - {repo['description']}")
+          PYTHON_EOF
+
+  plan:
+    name: Plan Changes
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Generate terraform.tfvars from repositories.json
+        shell: bash
+        run: |
+          python3 apps/scripts/generate_tfvars.py repositories.json infra/repositories/repos.tfvars
+
+      - name: Terraform Plan
+        working-directory: infra
+        env:
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          terraform init
+          terraform plan -var-file=repositories/repos.tfvars -out=tfplan
+          terraform show -json tfplan > tfplan.json
+
+      - name: Comment PR with plan
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = JSON.parse(fs.readFileSync('infra/tfplan.json', 'utf8'));
+
+            const changes = plan.resource_changes || [];
+            const summary = `
+            ## Terraform Plan Summary
+            - Resources to add: ${changes.filter(c => c.change.actions.includes('create')).length}
+            - Resources to update: ${changes.filter(c => c.change.actions.includes('update')).length}
+            - Resources to delete: ${changes.filter(c => c.change.actions.includes('delete')).length}
+            `.trim();
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Risk classification
+        shell: bash
+        run: |
+          python3 apps/scripts/classify_risk.py infra/tfplan.json
