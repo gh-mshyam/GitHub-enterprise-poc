@@ -10,25 +10,21 @@ variable "github_token" {
 }
 
 variable "repositories" {
-  description = "Map of repository name to its desired configuration"
+  description = "Map of repository ID to its configuration"
   type = map(object({
-    description        = optional(string, "")
-    visibility         = optional(string, "private")
-    homepage_url       = optional(string, null)
-    has_issues         = optional(bool, true)
-    has_wiki           = optional(bool, false)
-    has_projects       = optional(bool, false)
+    name        = string
+    visibility  = string
+    description = optional(string, "")
+    homepage_url = optional(string, null)
+    has_issues  = optional(bool, true)
+    has_wiki    = optional(bool, false)
+    has_projects = optional(bool, false)
     archive_on_destroy = optional(bool, true)
-    topics             = optional(list(string), [])
-    risk_tier          = optional(string, null)
-    teams              = optional(map(string), {})
-    branch_protection_rules = optional(object({
-      main_branch                    = string
-      require_code_owner_reviews     = bool
-      required_approving_review_count = number
-      dismiss_stale_reviews          = bool
-    }), null)
+    topics      = optional(list(string), [])
+    owner       = optional(string, null)
+    teams       = optional(list(string), [])
   }))
+  default = {}
 }
 
 variable "teams" {

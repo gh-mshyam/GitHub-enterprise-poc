@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - infra/config/repositories.json
+      - infra/repos.tfvars
 
 permissions:
   contents: read
@@ -18,47 +18,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate terraform vars
-        shell: bash
-        run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          from pathlib import Path
-
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repositories = config.get("repositories", {})
-
-          lines = [
-            '# Auto-generated from infra/config/repositories.json',
-            'repositories = {',
-          ]
-
-          for repo_id, repo in repositories.items():
-            if repo.get("operation") == "delete":
-              continue
-
-            lines.append(f'  "{repo_id}" = {{')
-            lines.append(f'    name       = "{repo.get("name", repo_id)}"')
-            lines.append(f'    visibility = "{repo.get("visibility", "private")}"')
-
-            if repo.get("description"):
-              lines.append(f'    description = "{repo["description"]}"')
-
-            if repo.get("topics"):
-              topics = ', '.join([f'"{t}"' for t in repo["topics"]])
-              lines.append(f'    topics = [{topics}]')
-
-            if repo.get("teams"):
-              teams = ', '.join([f'"{t}"' for t in repo["teams"]])
-              lines.append(f'    teams = [{teams}]')
-
-            lines.append('  }')
-
-          lines.append('}')
-          Path("repos.tfvars").write_text('\n'.join(lines))
-          print("✅ Generated repos.tfvars")
-          PYTHON_EOF
-
       - name: Terraform init
         shell: bash
         run: |
@@ -69,60 +28,16 @@ jobs:
         shell: bash
         env:
           TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
         run: |
           cd infra
-          terraform apply -auto-approve -var-file=../repos.tfvars
+          terraform apply -auto-approve -var-file=repos.tfvars
           echo "✅ Terraform apply completed"
-
-      - name: Handle repository deletions
-        shell: bash
-        env:
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python3 << 'PYTHON_EOF'
-          import json
-          from pathlib import Path
-          import subprocess
-
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repositories = config.get("repositories", {})
-
-          # Extract repositories marked for deletion
-          deletes = [repo_id for repo_id, repo in repositories.items()
-                     if repo.get("operation") == "delete"]
-
-          if not deletes:
-            print("ℹ️  No repositories marked for deletion")
-            exit(0)
-
-          print(f"⚠️  Processing {len(deletes)} deletion(s)...")
-
-          for repo_id in deletes:
-            resource_name = f"github_repository.this[\"{repo_id}\"]"
-            print(f"\n🗑️  Destroying: {repo_id}")
-
-            # Run terraform destroy for this specific resource
-            result = subprocess.run(
-              ["terraform", "destroy", "-auto-approve", "-target", resource_name],
-              cwd="infra",
-              capture_output=True,
-              text=True
-            )
-
-            if result.returncode == 0:
-              print(f"✅ Deleted: {repo_id}")
-            else:
-              print(f"⚠️  Warning deleting {repo_id}: {result.stderr}")
-              # Don't fail the workflow, just warn
-
-          print("\n✅ Deletion processing completed")
-          PYTHON_EOF
 
       - name: Get PR number
         id: pr
         shell: bash
         run: |
-          # Find PR that was merged
           PR_NUMBER=$(gh pr list \
             --state closed \
             --base main \
@@ -143,42 +58,17 @@ jobs:
           PR_NUMBER=${{ steps.pr.outputs.PR_NUMBER }}
 
           python3 << 'PYTHON_EOF'
-          import json
+          import re
           from pathlib import Path
 
-          config = json.loads(Path("infra/config/repositories.json").read_text())
-          repos = config.get("repositories", {})
-
-          created = [r for r in repos.values() if r.get("operation") == "create"]
-          imported = [r for r in repos.values() if r.get("operation") == "import"]
-          updated = [r for r in repos.values() if r.get("operation") == "update"]
-          deleted = [r for r in repos.values() if r.get("operation") == "delete"]
+          tfvars_content = Path("infra/repos.tfvars").read_text()
+          repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
 
           summary = "## ✅ Applied Successfully\n\n"
+          summary += f"**Repositories managed:** {len(repo_ids)}\n"
 
-          if created:
-            summary += f"**Created ({len(created)}):**\n"
-            for r in created:
-              summary += f"- `{r['name']}` ✅\n"
-            summary += "\n"
-
-          if imported:
-            summary += f"**Imported ({len(imported)}):**\n"
-            for r in imported:
-              summary += f"- `{r['name']}` ✅\n"
-            summary += "\n"
-
-          if updated:
-            summary += f"**Updated ({len(updated)}):**\n"
-            for r in updated:
-              summary += f"- `{r['name']}` ✅\n"
-            summary += "\n"
-
-          if deleted:
-            summary += f"**Deleted ({len(deleted)}):**\n"
-            for r in deleted:
-              summary += f"- `{r['name']}` ✅\n"
-            summary += "\n"
+          for repo_id in repo_ids:
+            summary += f"- `{repo_id}`\n"
 
           print(summary)
           Path("success_summary.txt").write_text(summary)

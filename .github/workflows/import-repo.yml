@@ -1,0 +1,116 @@
+name: Import Existing Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Repository name to import (lowercase, hyphens only)'
+        required: true
+      repo_id:
+        description: 'GitHub repository ID (numeric)'
+        required: true
+      visibility:
+        description: 'Repository visibility'
+        type: choice
+        options:
+          - private
+          - internal
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    name: Import Repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate input
+        shell: bash
+        run: |
+          echo "Validating inputs..."
+
+          if [[ ! "${{ inputs.repo_name }}" =~ ^[a-z0-9-]+$ ]]; then
+            echo "❌ Invalid repo name format. Must be lowercase alphanumeric with hyphens."
+            exit 1
+          fi
+
+          if [[ ! "${{ inputs.repo_id }}" =~ ^[0-9]+$ ]]; then
+            echo "❌ Invalid repo ID. Must be numeric."
+            exit 1
+          fi
+
+          echo "✅ Inputs valid"
+
+      - name: Verify repository exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          echo "Verifying repo exists on GitHub..."
+
+          if gh api repos/${{ github.repository_owner }}/${{ inputs.repo_name }} \
+            --jq '.id' > /dev/null 2>&1; then
+            echo "✅ Repository found"
+          else
+            echo "❌ Repository not found"
+            exit 1
+          fi
+
+      - name: Terraform init
+        shell: bash
+        run: |
+          cd infra
+          terraform init -upgrade=false
+
+      - name: Import repository
+        env:
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          cd infra
+
+          echo "Importing repository into Terraform state..."
+          terraform import \
+            'module.repository["${{ inputs.repo_name }}"].github_repository.this' \
+            '${{ inputs.repo_id }}' 2>&1 || true
+
+          echo "✅ Import completed"
+
+      - name: Generate config template
+        shell: bash
+        run: |
+          echo "## ✅ Repository Import Complete"
+          echo ""
+          echo "**Repo:** ${{ inputs.repo_name }}"
+          echo "**Repo ID:** ${{ inputs.repo_id }}"
+          echo ""
+          echo "### Next Steps:"
+          echo ""
+          echo "1. Copy the config block below"
+          echo "2. Edit \`infra/repos.tfvars\`"
+          echo "3. Paste into the \`repositories\` object"
+          echo "4. Commit to \`develop\` branch"
+          echo "5. Create PR and merge"
+          echo "6. Workflow will manage this repository automatically"
+          echo ""
+          echo "### Config Block:"
+          echo ""
+          echo "\`\`\`hcl"
+          echo '  "${{ inputs.repo_name }}" = {'
+          echo '    name        = "${{ inputs.repo_name }}"'
+          echo '    visibility  = "${{ inputs.visibility }}"'
+          echo '    description = "Imported repository"'
+          echo '    has_issues  = true'
+          echo '    has_wiki    = false'
+          echo '    has_projects = false'
+          echo '    archive_on_destroy = true'
+          echo '    topics      = []'
+          echo '    owner       = "${{ github.repository_owner }}"'
+          echo '    teams       = []'
+          echo '  }'
+          echo "\`\`\`"
