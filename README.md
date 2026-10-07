@@ -32,7 +32,7 @@ Autonomous repository and team provisioning for GitHub using Terraform.
 ## Quick Workflow
 
 ```
-Edit infra/repositories/*.tfvars
+Edit infra/default/repositories/*.tfvars
     ↓
 Create PR
     ↓
@@ -47,19 +47,26 @@ Resources created/updated on GitHub
 
 ## Configuration Files
 
-- `infra/repositories/repos.tfvars` — New repositories
-- `infra/repositories/teams.tfvars` — Teams and members
-- `infra/repositories/imports.tfvars` — Existing repos to import
+- `infra/default/repositories/repos.tfvars` — New repositories
+- `infra/default/repositories/teams.tfvars` — Teams and members
+- `infra/default/repositories/imports.tfvars` — Existing repos to import
 
-See [`infra/repositories/README.md`](infra/repositories/README.md) for details.
+See [`infra/default/repositories/README.md`](infra/default/repositories/README.md) for details.
 
 ## Documentation
 
+### Human-Friendly Guides
+
+- **📐 Architecture:** `conf/ARCHITECTURE.md` — System design and folder structure
+- **📝 Contributing:** `conf/CONTRIBUTING.md` — How to make changes and workflow guide
+
+### Technical Reference
+
 - **Full instructions:** `.ghdp/INSTRUCTIONS.md`
-- **Repository procedures:** `infra/modules/repository/README.md`
-- **Team procedures:** `infra/modules/teams/README.md`
-- **Import workflow:** `infra/repositories/IMPORT.md`
-- **Configuration guide:** `infra/repositories/README.md`
+- **Repository procedures:** `infra/default/modules/repository/README.md`
+- **Team procedures:** `infra/default/modules/teams/README.md`
+- **Import workflow:** `infra/default/repositories/IMPORT.md`
+- **Configuration guide:** `infra/default/repositories/README.md`
 - **Agent guidance:** `CLAUDE.md`
 
 ## Support

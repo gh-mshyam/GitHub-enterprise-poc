@@ -2,6 +2,8 @@
 
 Central hub for repository governance, instructions, and templates.
 
+> **Note:** This repository is **human-operated**. For human-friendly documentation and contribution guidelines, see [`/conf/`](../conf/).
+
 ---
 
 ## Contents
