@@ -82,11 +82,19 @@ class RepositoriesValidator:
             )
             valid = False
 
-        # Check visibility
-        if "visibility" not in repo:
-            self.errors.append(f"{repo_id}: Missing required field 'visibility'")
-            valid = False
-        elif repo["visibility"] not in self.VALID_VISIBILITY:
+        # Check visibility (required for create/import, optional for update/delete)
+        operation = repo.get("operation")
+        if operation in ["create", "import"]:
+            if "visibility" not in repo:
+                self.errors.append(f"{repo_id}: Missing required field 'visibility' for {operation} operation")
+                valid = False
+            elif repo["visibility"] not in self.VALID_VISIBILITY:
+                self.errors.append(
+                    f"{repo_id}: Invalid visibility '{repo['visibility']}'. "
+                    f"Must be: {', '.join(self.VALID_VISIBILITY)}"
+                )
+                valid = False
+        elif "visibility" in repo and repo["visibility"] not in self.VALID_VISIBILITY:
             self.errors.append(
                 f"{repo_id}: Invalid visibility '{repo['visibility']}'. "
                 f"Must be: {', '.join(self.VALID_VISIBILITY)}"
@@ -117,6 +125,31 @@ class RepositoriesValidator:
                 self.errors.append(
                     f"{repo_id}: 'description' exceeds 300 characters"
                 )
+                valid = False
+
+        if "homepage_url" in repo:
+            if not isinstance(repo["homepage_url"], str):
+                self.errors.append(f"{repo_id}: 'homepage_url' must be a string")
+                valid = False
+
+        if "has_issues" in repo:
+            if not isinstance(repo["has_issues"], bool):
+                self.errors.append(f"{repo_id}: 'has_issues' must be a boolean")
+                valid = False
+
+        if "has_wiki" in repo:
+            if not isinstance(repo["has_wiki"], bool):
+                self.errors.append(f"{repo_id}: 'has_wiki' must be a boolean")
+                valid = False
+
+        if "has_projects" in repo:
+            if not isinstance(repo["has_projects"], bool):
+                self.errors.append(f"{repo_id}: 'has_projects' must be a boolean")
+                valid = False
+
+        if "archive_on_destroy" in repo:
+            if not isinstance(repo["archive_on_destroy"], bool):
+                self.errors.append(f"{repo_id}: 'archive_on_destroy' must be a boolean")
                 valid = False
 
         if "topics" in repo:

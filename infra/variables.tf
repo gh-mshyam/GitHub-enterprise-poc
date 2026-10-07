@@ -22,6 +22,12 @@ variable "repositories" {
     topics             = optional(list(string), [])
     risk_tier          = optional(string, null)
     teams              = optional(map(string), {})
+    branch_protection_rules = optional(object({
+      main_branch                    = string
+      require_code_owner_reviews     = bool
+      required_approving_review_count = number
+      dismiss_stale_reviews          = bool
+    }), null)
   }))
 }
 

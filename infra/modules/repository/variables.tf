@@ -61,3 +61,14 @@ variable "github_token" {
   type        = string
   sensitive   = true
 }
+
+variable "branch_protection_rules" {
+  description = "Branch protection rules for main branch"
+  type = object({
+    main_branch                    = string
+    require_code_owner_reviews     = bool
+    required_approving_review_count = number
+    dismiss_stale_reviews          = bool
+  })
+  default = null
+}

@@ -44,3 +44,17 @@ resource "null_resource" "bootstrap_template" {
     }
   }
 }
+
+# Branch protection rules (if configured)
+resource "github_branch_protection" "main" {
+  count = var.branch_protection_rules != null ? 1 : 0
+
+  repository_id = github_repository.this.id
+  pattern       = var.branch_protection_rules.main_branch
+
+  require_conversation_resolution = true
+  require_code_owner_reviews      = var.branch_protection_rules.require_code_owner_reviews
+  required_approving_review_count = var.branch_protection_rules.required_approving_review_count
+  dismiss_stale_reviews           = var.branch_protection_rules.dismiss_stale_reviews
+  require_status_checks           = false
+}

@@ -38,6 +38,14 @@ def generate_tfvars(repos_json_path: str, output_path: str):
         lines.append(f'    visibility  = "{repo.get("visibility", "private")}"')
         lines.append(f'    description = "{repo.get("description", "")}"')
 
+        if repo.get("homepage_url"):
+            lines.append(f'    homepage_url = "{repo["homepage_url"]}"')
+
+        lines.append(f'    has_issues  = {str(repo.get("has_issues", True)).lower()}')
+        lines.append(f'    has_wiki    = {str(repo.get("has_wiki", False)).lower()}')
+        lines.append(f'    has_projects = {str(repo.get("has_projects", False)).lower()}')
+        lines.append(f'    archive_on_destroy = {str(repo.get("archive_on_destroy", True)).lower()}')
+
         if repo.get("topics"):
             topics_list = ', '.join([f'"{t}"' for t in repo["topics"]])
             lines.append(f'    topics      = [{topics_list}]')

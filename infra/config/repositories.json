@@ -1,21 +1,46 @@
 {
   "version": "1.0",
   "repositories": {
-    "test-repo-1": {
+    "new-test-repo": {
       "operation": "create",
-      "name": "test-repo-1",
+      "name": "new-test-repo",
       "visibility": "private",
-      "description": "Test repository for validation",
+      "description": "New test repo - created via dry run",
       "owner": "platform-team",
-      "topics": ["test", "poc"],
+      "topics": ["test", "dry-run"],
+      "teams": ["platform-team"],
       "branch_protection": {
         "main_branch": "main",
         "require_pr_reviews": true,
         "dismiss_stale_reviews": true
-      },
-      "auto_merge_develop_to_main": false,
+      }
+    },
+    "imported-repo": {
+      "operation": "import",
+      "name": "imported-repo",
+      "visibility": "private",
+      "owner": "platform-team",
+      "topics": ["imported"],
       "teams": ["platform-team"],
-      "custom_files": {}
+      "import_existing": {
+        "owner": "gh-mshyam",
+        "repo_id": 123456789
+      }
+    },
+    "imported-repo-updated": {
+      "operation": "update",
+      "name": "imported-repo-updated",
+      "visibility": "private",
+      "description": "Updated description after import",
+      "topics": ["imported", "updated"],
+      "teams": ["platform-team", "devops-team"],
+      "owner": "platform-team"
+    },
+    "repo-to-delete": {
+      "operation": "delete",
+      "name": "repo-to-delete",
+      "visibility": "private",
+      "owner": "platform-team"
     },
     "existing-repo-to-import": {
       "operation": "import",
@@ -24,7 +49,7 @@
       "owner": "platform-team",
       "import_existing": {
         "owner": "gh-mshyam",
-        "repo_id": 123456789
+        "repo_id": 987654321
       }
     }
   }

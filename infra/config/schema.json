@@ -45,6 +45,31 @@
           "maxLength": 300,
           "description": "Repository description"
         },
+        "homepage_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Homepage URL for the repository"
+        },
+        "has_issues": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Issues for this repository"
+        },
+        "has_wiki": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Wiki for this repository"
+        },
+        "has_projects": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Projects for this repository"
+        },
+        "archive_on_destroy": {
+          "type": "boolean",
+          "default": true,
+          "description": "Archive the repository instead of deleting it on destroy"
+        },
         "owner": {
           "type": "string",
           "description": "Team or user that owns this repo (for access control)"
@@ -97,7 +122,13 @@
           }
         }
       },
-      "required": ["operation", "name", "visibility"]
+      "required": ["operation", "name"],
+      "allOf": [
+        {
+          "if": { "properties": { "operation": { "enum": ["create", "import"] } } },
+          "then": { "required": ["visibility"] }
+        }
+      ]
     }
   }
 }

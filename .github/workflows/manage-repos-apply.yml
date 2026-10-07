@@ -74,6 +74,50 @@ jobs:
           terraform apply -auto-approve -var-file=../repos.tfvars
           echo "✅ Terraform apply completed"
 
+      - name: Handle repository deletions
+        shell: bash
+        env:
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          from pathlib import Path
+          import subprocess
+
+          config = json.loads(Path("infra/config/repositories.json").read_text())
+          repositories = config.get("repositories", {})
+
+          # Extract repositories marked for deletion
+          deletes = [repo_id for repo_id, repo in repositories.items()
+                     if repo.get("operation") == "delete"]
+
+          if not deletes:
+            print("ℹ️  No repositories marked for deletion")
+            exit(0)
+
+          print(f"⚠️  Processing {len(deletes)} deletion(s)...")
+
+          for repo_id in deletes:
+            resource_name = f"github_repository.this[\"{repo_id}\"]"
+            print(f"\n🗑️  Destroying: {repo_id}")
+
+            # Run terraform destroy for this specific resource
+            result = subprocess.run(
+              ["terraform", "destroy", "-auto-approve", "-target", resource_name],
+              cwd="infra",
+              capture_output=True,
+              text=True
+            )
+
+            if result.returncode == 0:
+              print(f"✅ Deleted: {repo_id}")
+            else:
+              print(f"⚠️  Warning deleting {repo_id}: {result.stderr}")
+              # Don't fail the workflow, just warn
+
+          print("\n✅ Deletion processing completed")
+          PYTHON_EOF
+
       - name: Get PR number
         id: pr
         shell: bash
