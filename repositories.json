@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "repositories": {
+    "test-repo-1": {
+      "operation": "create",
+      "name": "test-repo-1",
+      "visibility": "private",
+      "description": "Test repository for validation",
+      "owner": "platform-team",
+      "topics": ["test", "poc"],
+      "branch_protection": {
+        "main_branch": "main",
+        "require_pr_reviews": true,
+        "dismiss_stale_reviews": true
+      },
+      "auto_merge_develop_to_main": false,
+      "teams": ["platform-team"],
+      "custom_files": {}
+    },
+    "existing-repo-to-import": {
+      "operation": "import",
+      "name": "existing-repo-to-import",
+      "visibility": "private",
+      "owner": "platform-team",
+      "import_existing": {
+        "owner": "gh-mshyam",
+        "repo_id": 123456789
+      }
+    }
+  }
+}
