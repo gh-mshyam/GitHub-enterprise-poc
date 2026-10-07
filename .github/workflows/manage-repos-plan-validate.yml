@@ -117,6 +117,7 @@ jobs:
           python3 << 'PYTHON_EOF'
           import json
           from pathlib import Path
+          from datetime import datetime
 
           try:
             config = json.loads(Path("repositories.json").read_text())
@@ -156,7 +157,7 @@ jobs:
             if not (create or import_repos or update or delete):
               summary += "No changes.\n"
 
-            summary += f"\n✅ Updated at {pd.Timestamp.now().isoformat()}"
+            summary += f"\n✅ Updated at {datetime.now().isoformat()}"
 
             print(summary)
             Path("plan_summary.txt").write_text(summary)
