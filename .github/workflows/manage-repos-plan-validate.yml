@@ -28,6 +28,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
       - name: Terraform init
         shell: bash
         # TODO: Add S3 backend configuration when infra/backend.tf is created
