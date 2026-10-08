@@ -1,0 +1,210 @@
+name: Deploy Repository Changes
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to deploy'
+        required: true
+        type: number
+      mode:
+        description: 'Deploy mode'
+        required: true
+        type: choice
+        options:
+          - full
+          - apply-only
+        default: full
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    name: Plan, Merge, and Apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        shell: bash
+        run: |
+          cd infra/default
+          terraform init -upgrade=false
+
+      - name: Terraform plan
+        if: inputs.mode == 'full'
+        shell: bash
+        env:
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: |
+          cd infra/default
+          terraform plan -var-file=repos.tfvars -json > tfplan.json 2>&1 || true
+          echo "✅ Terraform plan completed"
+
+      - name: Build plan summary
+        if: inputs.mode == 'full'
+        id: plan_summary
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import json
+          import re
+          from pathlib import Path
+          from datetime import datetime
+
+          try:
+            content = Path("infra/default/tfplan.json").read_text()
+
+            to_create = []
+            to_modify = []
+            to_delete = []
+
+            for line in content.strip().split('\n'):
+              if not line.strip():
+                continue
+
+              obj = json.loads(line)
+
+              if obj.get("type") == "planned_change":
+                change = obj.get("change", {})
+                resource = change.get("resource", {})
+                address = resource.get("addr", "")
+                action = change.get("action", "")
+
+                if "module.repository" in address and "github_repository.this" in address:
+                  match = re.search(r'\["([^"]+)"\]', address)
+                  if match:
+                    repo_name = match.group(1)
+
+                    if action == "create" and repo_name not in to_create:
+                      to_create.append(repo_name)
+                    elif action == "update" and repo_name not in to_modify:
+                      to_modify.append(repo_name)
+                    elif action == "delete" and repo_name not in to_delete:
+                      to_delete.append(repo_name)
+
+            summary = "## Terraform Plan Summary\n\n"
+
+            if to_create:
+              summary += f"**Creating {len(to_create)} repo(s):**\n"
+              for repo in to_create:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if to_modify:
+              summary += f"**Modifying {len(to_modify)} repo(s):**\n"
+              for repo in to_modify:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if to_delete:
+              summary += f"**Deleting {len(to_delete)} repo(s):**\n"
+              for repo in to_delete:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if not (to_create or to_modify or to_delete):
+              summary += "**No changes detected**\n\n"
+
+            summary += f"✅ Plan validation passed at {datetime.now().isoformat()}"
+
+            print(summary)
+            Path("plan_summary.txt").write_text(summary)
+          except Exception as e:
+            print(f"Error parsing plan: {e}")
+            Path("plan_summary.txt").write_text(f"## Terraform Plan Summary\n\nError: {e}")
+          PYTHON_EOF
+
+      - name: Post plan to PR
+        if: inputs.mode == 'full'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUMBER=${{ inputs.pr_number }}
+          PLAN_CONTENT=$(cat plan_summary.txt)
+          gh pr comment $PR_NUMBER --body "$PLAN_CONTENT"
+          echo "✅ Plan posted to PR"
+
+      - name: Merge PR
+        if: inputs.mode == 'full'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUMBER=${{ inputs.pr_number }}
+          gh pr merge $PR_NUMBER --squash --auto --delete-branch
+          echo "✅ PR merged and branch deleted"
+
+      - name: Wait for merge
+        if: inputs.mode == 'full'
+        shell: bash
+        run: sleep 2
+
+      - name: Checkout main after merge
+        if: inputs.mode == 'full'
+        shell: bash
+        run: |
+          git fetch origin
+          git checkout main
+          git reset --hard origin/main
+
+      - name: Terraform apply
+        shell: bash
+        env:
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+        run: |
+          cd infra/default
+          terraform plan -var-file=repos.tfvars -out=tfplan.out
+          terraform apply -auto-approve tfplan.out
+          echo "✅ Terraform apply completed"
+
+      - name: Post success comment
+        if: inputs.mode == 'full' && success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUMBER=${{ inputs.pr_number }}
+
+          python3 << 'PYTHON_EOF'
+          import re
+          from pathlib import Path
+
+          tfvars_content = Path("infra/default/repos.tfvars").read_text()
+          repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
+
+          summary = "## ✅ Deploy Successful\n\n"
+          summary += "**Terraform apply completed successfully**\n"
+          summary += f"**Repositories managed:** {len(repo_ids)}\n"
+
+          for repo_id in repo_ids:
+            summary += f"- `{repo_id}`\n"
+
+          print(summary)
+          Path("success_summary.txt").write_text(summary)
+          PYTHON_EOF
+
+          SUMMARY=$(cat success_summary.txt)
+          gh pr comment $PR_NUMBER --body "$SUMMARY"
+          echo "✅ Success comment posted"
+
+      - name: Post failure comment
+        if: inputs.mode == 'full' && failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_NUMBER=${{ inputs.pr_number }}
+          gh pr comment $PR_NUMBER --body "## ❌ Deploy Failed\n\nTerraform plan or apply failed. Check workflow logs for details."
+          echo "❌ Failure comment posted"

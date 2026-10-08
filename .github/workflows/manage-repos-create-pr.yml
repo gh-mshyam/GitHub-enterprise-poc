@@ -80,46 +80,13 @@ jobs:
           FROM_BRANCH: ${{ inputs.from_branch }}
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
-          REPO_COUNT=$(grep -v '^\s*#' infra/default/repos.tfvars | grep -c '"[^"]*" = {' || true)
-          REPO_COUNT=${REPO_COUNT:-0}
           echo "## Repository Configuration Sync" > /tmp/body.txt
           echo "" >> /tmp/body.txt
-          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "### Summary" >> /tmp/body.txt
-          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "### Review Process" >> /tmp/body.txt
-          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
-          echo "2. Verify all changes are correct" >> /tmp/body.txt
-          echo "3. Approve and merge when ready" >> /tmp/body.txt
+          echo "Changes from $FROM_BRANCH branch ready for deployment to $TO_BRANCH." >> /tmp/body.txt
           echo "" >> /tmp/body.txt
           echo "### Next Steps" >> /tmp/body.txt
-          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
+          echo "1. Go to Actions → Deploy workflow" >> /tmp/body.txt
+          echo "2. Click 'Run workflow'" >> /tmp/body.txt
+          echo "3. Terraform plan will be posted below" >> /tmp/body.txt
+          echo "4. PR will auto-merge and terraform apply will run" >> /tmp/body.txt
           gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" --body-file /tmp/body.txt
-
-      - name: Update existing PR
-        if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          FROM_BRANCH: ${{ inputs.from_branch }}
-          TO_BRANCH: ${{ inputs.to_branch }}
-        run: |
-          PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
-          REPO_COUNT=$(grep -v '^\s*#' infra/default/repos.tfvars | grep -c '"[^"]*" = {' || echo 0)
-          echo "## Repository Configuration Sync" > /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "### Summary" >> /tmp/body.txt
-          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "### Review Process" >> /tmp/body.txt
-          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
-          echo "2. Verify all changes are correct" >> /tmp/body.txt
-          echo "3. Approve and merge when ready" >> /tmp/body.txt
-          echo "" >> /tmp/body.txt
-          echo "### Next Steps" >> /tmp/body.txt
-          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
-          gh pr edit $PR_NUMBER --body-file /tmp/body.txt

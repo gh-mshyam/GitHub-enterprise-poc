@@ -1,0 +1,55 @@
+name: Create Feature Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Feature branch name'
+        default: 'develop'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-branch:
+    name: Create Feature Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if branch exists
+        id: check_branch
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ inputs.branch_name }}
+        run: |
+          git fetch origin
+          if git rev-parse origin/$BRANCH_NAME > /dev/null 2>&1; then
+            echo "Branch already exists"
+            exit 1
+          fi
+          echo "✅ Branch does not exist, safe to create"
+
+      - name: Create feature branch
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ inputs.branch_name }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git checkout main
+          git pull origin main
+          git checkout -b $BRANCH_NAME
+          git push -u origin $BRANCH_NAME
+          echo "✅ Feature branch '$BRANCH_NAME' created and pushed"
+
+      - name: Post notification
+        shell: bash
+        run: |
+          echo "Feature branch created successfully!"
+          echo "Branch: ${{ inputs.branch_name }}"
+          echo "Repository: ${{ github.repository }}"
