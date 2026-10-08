@@ -61,7 +61,7 @@ jobs:
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           FROM_BRANCH: ${{ inputs.from_branch }}
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
@@ -83,7 +83,7 @@ jobs:
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'false'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           FROM_BRANCH: ${{ inputs.from_branch }}
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
@@ -94,7 +94,7 @@ jobs:
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
