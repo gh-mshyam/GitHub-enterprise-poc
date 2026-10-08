@@ -37,7 +37,6 @@ module "repository" {
   topics             = each.value.topics
   github_owner       = var.github_owner
   github_token       = var.github_token
-  branch_protection_rules = each.value.branch_protection_rules
 }
 
 module "teams" {
