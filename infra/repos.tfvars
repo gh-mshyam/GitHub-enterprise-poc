@@ -38,12 +38,5 @@ repositories = {
   # }
 
   # Add repositories here
-  "test-repo" = {
-    name        = "test-repo"
-    visibility  = "private"
-    description = "Test repository for system validation"
-    teams       = []
-    topics      = ["test"]
-  }
 
 }
