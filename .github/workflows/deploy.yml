@@ -1,4 +1,4 @@
-name: Deploy Repository Changes
+name: Deploy
 
 on:
   workflow_dispatch:

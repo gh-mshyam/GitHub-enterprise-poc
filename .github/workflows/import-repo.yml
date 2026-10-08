@@ -1,4 +1,4 @@
-name: Import Existing Repository
+name: Import Repo
 
 on:
   workflow_dispatch:

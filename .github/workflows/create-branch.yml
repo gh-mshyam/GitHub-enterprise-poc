@@ -1,4 +1,4 @@
-name: Create Feature Branch
+name: Create Branch
 
 on:
   workflow_dispatch:
