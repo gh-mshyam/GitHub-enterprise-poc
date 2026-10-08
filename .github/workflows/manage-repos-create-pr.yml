@@ -36,9 +36,9 @@ jobs:
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           git fetch origin
-          git rev-parse origin/$FROM_BRANCH || (echo "❌ Branch $FROM_BRANCH not found" && exit 1)
-          git rev-parse origin/$TO_BRANCH || (echo "❌ Branch $TO_BRANCH not found" && exit 1)
-          echo "✅ Both branches exist"
+          git rev-parse origin/$FROM_BRANCH || (echo "Branch $FROM_BRANCH not found" && exit 1)
+          git rev-parse origin/$TO_BRANCH || (echo "Branch $TO_BRANCH not found" && exit 1)
+          echo "Both branches exist"
 
       - name: Check if changes exist
         id: check_diff
@@ -52,10 +52,8 @@ jobs:
 
           if [ "$FROM_SHA" != "$TO_SHA" ]; then
             echo "CHANGES_EXIST=true" >> $GITHUB_OUTPUT
-            echo "✅ Changes detected between $FROM_BRANCH and $TO_BRANCH"
           else
             echo "CHANGES_EXIST=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No changes between branches"
           fi
 
       - name: Get existing PR
@@ -77,10 +75,8 @@ jobs:
           if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
             echo "PR_EXISTS=true" >> $GITHUB_OUTPUT
             echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
-            echo "✅ Found existing PR #$PR_NUMBER"
           else
             echo "PR_EXISTS=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No existing PR found"
           fi
 
       - name: Create new PR
@@ -92,50 +88,14 @@ jobs:
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-
-          gh pr create \
-            --base $TO_BRANCH \
-            --head $FROM_BRANCH \
-            --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" \
-            --body "## Sync Repository Configuration
-
-Repository changes from \`$FROM_BRANCH\` branch ready to apply.
-
-**Repositories managed:** $REPO_COUNT
-
-### Next Steps
-- Review changes
-- Approve and merge to $TO_BRANCH
-- Apply workflow will run automatically
-
----
-
-**Note:** This PR is auto-generated. Edit title/description as needed."
-          echo "✅ PR created"
+          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars" --body "Repositories managed: $REPO_COUNT"
 
       - name: Update existing PR
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FROM_BRANCH: ${{ inputs.from_branch }}
-          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-
-          gh pr edit $PR_NUMBER --body "## Sync Repository Configuration
-
-Repository changes from \`$FROM_BRANCH\` branch ready to apply.
-
-**Repositories managed:** $REPO_COUNT
-
-### Next Steps
-- Review changes
-- Approve and merge to $TO_BRANCH
-- Apply workflow will run automatically
-
----
-
-**Note:** This PR is auto-generated. Edit title/description as needed."
-          echo "✅ PR updated (#$PR_NUMBER)"
+          gh pr edit $PR_NUMBER --body "Repositories managed: $REPO_COUNT"
