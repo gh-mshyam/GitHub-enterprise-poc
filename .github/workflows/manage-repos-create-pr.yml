@@ -1,10 +1,7 @@
 name: Create PR (Develop → Main)
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - infra/repos.tfvars
+  workflow_dispatch:
 
 permissions:
   contents: write
