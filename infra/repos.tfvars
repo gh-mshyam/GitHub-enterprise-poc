@@ -38,5 +38,11 @@ repositories = {
   # }
 
   # Add repositories here
+  "test-repo" = {
+    name        = "test-repo"
+    visibility  = "private"
+    description = "same"
+    teams = ["backend-team", "devops-team"]
+  }
 
 }
