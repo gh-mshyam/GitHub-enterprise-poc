@@ -1,13 +1,10 @@
 name: Create PR (Develop → Main)
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - infra/repos.tfvars
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   # TODO: Add id-token: write for AWS OIDC (fetch GitHub token from Secrets Manager)
 
