@@ -49,7 +49,6 @@ jobs:
         run: |
           FROM_SHA=$(git rev-parse origin/$FROM_BRANCH)
           TO_SHA=$(git rev-parse origin/$TO_BRANCH)
-
           if [ "$FROM_SHA" != "$TO_SHA" ]; then
             echo "CHANGES_EXIST=true" >> $GITHUB_OUTPUT
           else
@@ -65,13 +64,7 @@ jobs:
           FROM_BRANCH: ${{ inputs.from_branch }}
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
-          PR_NUMBER=$(gh pr list \
-            --base $TO_BRANCH \
-            --head $FROM_BRANCH \
-            --state open \
-            --json number \
-            --jq '.[0].number' 2>/dev/null)
-
+          PR_NUMBER=$(gh pr list --base $TO_BRANCH --head $FROM_BRANCH --state open --json number --jq '.[0].number' 2>/dev/null)
           if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
             echo "PR_EXISTS=true" >> $GITHUB_OUTPUT
             echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
@@ -88,25 +81,21 @@ jobs:
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-          BODY=$(cat <<'EOF'
-## Repository Configuration Sync
-
-Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH.
-
-### Summary
-- Repositories managed: $REPO_COUNT
-
-### Review Process
-1. Review the terraform plan in comments
-2. Verify all changes are correct
-3. Approve and merge when ready
-
-### Next Steps
-Apply workflow will run automatically after merge.
-
-EOF
-)
-          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" --body "$BODY"
+          echo "## Repository Configuration Sync" > /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Summary" >> /tmp/body.txt
+          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Review Process" >> /tmp/body.txt
+          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
+          echo "2. Verify all changes are correct" >> /tmp/body.txt
+          echo "3. Approve and merge when ready" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Next Steps" >> /tmp/body.txt
+          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
+          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" --body-file /tmp/body.txt
 
       - name: Update existing PR
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
@@ -118,22 +107,18 @@ EOF
         run: |
           PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-          BODY=$(cat <<'EOF'
-## Repository Configuration Sync
-
-Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH.
-
-### Summary
-- Repositories managed: $REPO_COUNT
-
-### Review Process
-1. Review the terraform plan in comments
-2. Verify all changes are correct
-3. Approve and merge when ready
-
-### Next Steps
-Apply workflow will run automatically after merge.
-
-EOF
-)
-          gh pr edit $PR_NUMBER --body "$BODY"
+          echo "## Repository Configuration Sync" > /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Summary" >> /tmp/body.txt
+          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Review Process" >> /tmp/body.txt
+          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
+          echo "2. Verify all changes are correct" >> /tmp/body.txt
+          echo "3. Approve and merge when ready" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Next Steps" >> /tmp/body.txt
+          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
+          gh pr edit $PR_NUMBER --body-file /tmp/body.txt
