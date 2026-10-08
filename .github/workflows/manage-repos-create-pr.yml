@@ -88,14 +88,52 @@ jobs:
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars" --body "Repositories managed: $REPO_COUNT"
+          BODY=$(cat <<'EOF'
+## Repository Configuration Sync
+
+Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH.
+
+### Summary
+- Repositories managed: $REPO_COUNT
+
+### Review Process
+1. Review the terraform plan in comments
+2. Verify all changes are correct
+3. Approve and merge when ready
+
+### Next Steps
+Apply workflow will run automatically after merge.
+
+EOF
+)
+          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" --body "$BODY"
 
       - name: Update existing PR
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-          gh pr edit $PR_NUMBER --body "Repositories managed: $REPO_COUNT"
+          BODY=$(cat <<'EOF'
+## Repository Configuration Sync
+
+Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH.
+
+### Summary
+- Repositories managed: $REPO_COUNT
+
+### Review Process
+1. Review the terraform plan in comments
+2. Verify all changes are correct
+3. Approve and merge when ready
+
+### Next Steps
+Apply workflow will run automatically after merge.
+
+EOF
+)
+          gh pr edit $PR_NUMBER --body "$BODY"
