@@ -80,7 +80,8 @@ jobs:
           FROM_BRANCH: ${{ inputs.from_branch }}
           TO_BRANCH: ${{ inputs.to_branch }}
         run: |
-          REPO_COUNT=$(grep -v '^\s*#' infra/repos.tfvars | grep -c '"[^"]*" = {' || echo 0)
+          REPO_COUNT=$(grep -v '^\s*#' infra/repos.tfvars | grep -c '"[^"]*" = {' || true)
+          REPO_COUNT=${REPO_COUNT:-0}
           echo "## Repository Configuration Sync" > /tmp/body.txt
           echo "" >> /tmp/body.txt
           echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt

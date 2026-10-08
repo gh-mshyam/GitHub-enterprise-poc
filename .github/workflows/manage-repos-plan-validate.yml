@@ -61,7 +61,9 @@ jobs:
 
           try:
             tfvars_content = Path("infra/repos.tfvars").read_text()
-            repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
+            # Only count repos not on commented lines
+            active_lines = [line for line in tfvars_content.split('\n') if not line.strip().startswith('#')]
+            repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', '\n'.join(active_lines))
 
             summary = "## Terraform Plan Summary\n\n"
             summary += f"**Repositories:** {len(repo_ids)}\n"
