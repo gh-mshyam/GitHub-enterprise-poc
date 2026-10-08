@@ -56,40 +56,47 @@ jobs:
         run: |
           python3 << 'PYTHON_EOF'
           import json
+          import re
           from pathlib import Path
           from datetime import datetime
 
           try:
-            plan_data = json.loads(Path("infra/tfplan.json").read_text())
+            # terraform plan -json outputs newline-delimited JSON
+            content = Path("infra/tfplan.json").read_text()
 
-            summary = "## Terraform Plan Summary\n\n"
-
-            # Count resource changes
-            resource_changes = plan_data.get("resource_changes", [])
             to_create = []
             to_modify = []
             to_delete = []
 
-            for change in resource_changes:
-              resource_type = change.get("type", "")
-              address = change.get("address", "")
-              actions = change.get("change", {}).get("actions", [])
+            # Parse each line as separate JSON object
+            for line in content.strip().split('\n'):
+              if not line.strip():
+                continue
 
-              # Extract repo name from address (e.g., module.repository["test-repo"].github_repository.this)
-              if "module.repository" in address and "github_repository.this" in address:
-                import re
-                match = re.search(r'\["([^"]+)"\]', address)
-                if match:
-                  repo_name = match.group(1)
+              obj = json.loads(line)
 
-                  if "create" in actions:
-                    to_create.append(repo_name)
-                  elif "update" in actions:
-                    to_modify.append(repo_name)
-                  elif "delete" in actions:
-                    to_delete.append(repo_name)
+              # Look for resource_changes
+              if "resource_changes" in obj:
+                for change in obj["resource_changes"]:
+                  address = change.get("address", "")
+                  actions = change.get("change", {}).get("actions", [])
+
+                  # Extract repo name from address (e.g., module.repository["test-repo"].github_repository.this)
+                  if "module.repository" in address and "github_repository.this" in address:
+                    match = re.search(r'\["([^"]+)"\]', address)
+                    if match:
+                      repo_name = match.group(1)
+
+                      if "create" in actions:
+                        to_create.append(repo_name)
+                      elif "update" in actions:
+                        to_modify.append(repo_name)
+                      elif "delete" in actions:
+                        to_delete.append(repo_name)
 
             # Build summary
+            summary = "## Terraform Plan Summary\n\n"
+
             if to_create:
               summary += f"**Creating {len(to_create)} repo(s):**\n"
               for repo in to_create:
