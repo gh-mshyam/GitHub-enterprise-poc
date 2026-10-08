@@ -55,28 +55,69 @@ jobs:
         shell: bash
         run: |
           python3 << 'PYTHON_EOF'
-          import re
+          import json
           from pathlib import Path
           from datetime import datetime
 
           try:
-            tfvars_content = Path("infra/repos.tfvars").read_text()
-            # Only count repos not on commented lines
-            active_lines = [line for line in tfvars_content.split('\n') if not line.strip().startswith('#')]
-            repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', '\n'.join(active_lines))
+            plan_data = json.loads(Path("infra/tfplan.json").read_text())
 
             summary = "## Terraform Plan Summary\n\n"
-            summary += f"**Repositories:** {len(repo_ids)}\n"
 
-            for repo_id in repo_ids:
-              summary += f"- `{repo_id}`\n"
+            # Count resource changes
+            resource_changes = plan_data.get("resource_changes", [])
+            to_create = []
+            to_modify = []
+            to_delete = []
 
-            summary += f"\n✅ Plan generated at {datetime.now().isoformat()}"
+            for change in resource_changes:
+              resource_type = change.get("type", "")
+              address = change.get("address", "")
+              actions = change.get("change", {}).get("actions", [])
+
+              # Extract repo name from address (e.g., module.repository["test-repo"].github_repository.this)
+              if "module.repository" in address and "github_repository.this" in address:
+                import re
+                match = re.search(r'\["([^"]+)"\]', address)
+                if match:
+                  repo_name = match.group(1)
+
+                  if "create" in actions:
+                    to_create.append(repo_name)
+                  elif "update" in actions:
+                    to_modify.append(repo_name)
+                  elif "delete" in actions:
+                    to_delete.append(repo_name)
+
+            # Build summary
+            if to_create:
+              summary += f"**Creating {len(to_create)} repo(s):**\n"
+              for repo in to_create:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if to_modify:
+              summary += f"**Modifying {len(to_modify)} repo(s):**\n"
+              for repo in to_modify:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if to_delete:
+              summary += f"**Deleting {len(to_delete)} repo(s):**\n"
+              for repo in to_delete:
+                summary += f"- `{repo}`\n"
+              summary += "\n"
+
+            if not (to_create or to_modify or to_delete):
+              summary += "**No changes detected**\n\n"
+
+            summary += f"✅ Plan generated at {datetime.now().isoformat()}"
 
             print(summary)
             Path("plan_summary.txt").write_text(summary)
           except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error parsing plan: {e}")
+            Path("plan_summary.txt").write_text(f"## Terraform Plan Summary\n\nError: {e}")
           PYTHON_EOF
 
       - name: Find or create comment
