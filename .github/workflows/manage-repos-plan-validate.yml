@@ -105,7 +105,7 @@ jobs:
 
           if [ "${{ steps.comment.outputs.UPDATE_COMMENT }}" == "true" ]; then
             gh pr comment $PR_NUMBER \
-              --edit ${{ steps.comment.outputs.COMMENT_ID }} \
+              --edit-last \
               --body "$PLAN_CONTENT"
             echo "✅ Comment updated"
           else
