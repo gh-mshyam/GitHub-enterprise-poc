@@ -54,12 +54,6 @@ jobs:
         id: plan_summary
         shell: bash
         run: |
-          echo "DEBUG: tfplan.json content (first 2000 chars):"
-          head -c 2000 infra/tfplan.json
-          echo ""
-          echo "DEBUG: repositories in repos.tfvars:"
-          grep -c '".*" = {' infra/repos.tfvars || true
-          echo ""
           python3 << 'PYTHON_EOF'
           import json
           import re
@@ -81,23 +75,27 @@ jobs:
 
               obj = json.loads(line)
 
-              # Look for resource_changes
-              if "resource_changes" in obj:
-                for change in obj["resource_changes"]:
-                  address = change.get("address", "")
-                  actions = change.get("change", {}).get("actions", [])
+              # Look for planned_change events
+              if obj.get("type") == "planned_change":
+                change = obj.get("change", {})
+                resource = change.get("resource", {})
+                address = resource.get("addr", "")
+                action = change.get("action", "")
 
-                  # Extract repo name from address (e.g., module.repository["test-repo"].github_repository.this)
-                  if "module.repository" in address and "github_repository.this" in address:
-                    match = re.search(r'\["([^"]+)"\]', address)
-                    if match:
-                      repo_name = match.group(1)
+                # Extract repo name from address (e.g., module.repository["test-repo"].github_repository.this)
+                if "module.repository" in address and "github_repository.this" in address:
+                  match = re.search(r'\["([^"]+)"\]', address)
+                  if match:
+                    repo_name = match.group(1)
 
-                      if "create" in actions:
+                    if action == "create":
+                      if repo_name not in to_create:
                         to_create.append(repo_name)
-                      elif "update" in actions:
+                    elif action == "update":
+                      if repo_name not in to_modify:
                         to_modify.append(repo_name)
-                      elif "delete" in actions:
+                    elif action == "delete":
+                      if repo_name not in to_delete:
                         to_delete.append(repo_name)
 
             # Build summary
