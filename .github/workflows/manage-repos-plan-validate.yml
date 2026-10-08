@@ -54,6 +54,12 @@ jobs:
         id: plan_summary
         shell: bash
         run: |
+          echo "DEBUG: tfplan.json content (first 2000 chars):"
+          head -c 2000 infra/tfplan.json
+          echo ""
+          echo "DEBUG: repositories in repos.tfvars:"
+          grep -c '".*" = {' infra/repos.tfvars || true
+          echo ""
           python3 << 'PYTHON_EOF'
           import json
           import re
