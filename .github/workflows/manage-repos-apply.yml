@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - infra/repos.tfvars
+      - infra/default/repos.tfvars
 
 permissions:
   contents: read
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         # TODO: Add S3 backend configuration when infra/backend.tf is created
         run: |
-          cd infra
+          cd infra/default
           terraform init -upgrade=false
 
       - name: Terraform apply
@@ -37,7 +37,7 @@ jobs:
           TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
         run: |
-          cd infra
+          cd infra/default
           terraform apply -auto-approve -var-file=repos.tfvars
           echo "✅ Terraform apply completed"
 
@@ -68,7 +68,7 @@ jobs:
           import re
           from pathlib import Path
 
-          tfvars_content = Path("infra/repos.tfvars").read_text()
+          tfvars_content = Path("infra/default/repos.tfvars").read_text()
           repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
 
           summary = "## ✅ Applied Successfully\n\n"
