@@ -46,4 +46,12 @@ repositories = {
     topics      = ["test"]
   }
 
+  "demo-repo" = {
+    name        = "demo-repo"
+    visibility  = "private"
+    description = "Demo repository created via new deploy workflow"
+    teams       = ["backend-team"]
+    topics      = ["demo", "workflow-test"]
+  }
+
 }
