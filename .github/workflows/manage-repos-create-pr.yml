@@ -1,7 +1,18 @@
-name: Create PR (Develop → Main)
+name: Create PR
 
 on:
   workflow_dispatch:
+    inputs:
+      from_branch:
+        description: 'Branch to create PR from'
+        default: 'develop'
+        required: true
+        type: string
+      to_branch:
+        description: 'Branch to create PR to'
+        default: 'main'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,19 +29,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if develop is ahead of main
+      - name: Check if branches exist
+        shell: bash
+        env:
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
+        run: |
+          git fetch origin
+          git rev-parse origin/$FROM_BRANCH || (echo "Branch $FROM_BRANCH not found" && exit 1)
+          git rev-parse origin/$TO_BRANCH || (echo "Branch $TO_BRANCH not found" && exit 1)
+          echo "Both branches exist"
+
+      - name: Check if changes exist
         id: check_diff
         shell: bash
+        env:
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
-          MAIN_SHA=$(git rev-parse origin/main)
-          DEVELOP_SHA=$(git rev-parse origin/develop)
-
-          if [ "$MAIN_SHA" != "$DEVELOP_SHA" ]; then
+          FROM_SHA=$(git rev-parse origin/$FROM_BRANCH)
+          TO_SHA=$(git rev-parse origin/$TO_BRANCH)
+          if [ "$FROM_SHA" != "$TO_SHA" ]; then
             echo "CHANGES_EXIST=true" >> $GITHUB_OUTPUT
-            echo "✅ Changes detected between develop and main"
           else
             echo "CHANGES_EXIST=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No changes between branches"
           fi
 
       - name: Get existing PR
@@ -38,85 +60,65 @@ jobs:
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
-          PR_NUMBER=$(gh pr list \
-            --base main \
-            --head develop \
-            --state open \
-            --json number \
-            --jq '.[0].number' 2>/dev/null)
-
+          PR_NUMBER=$(gh pr list --base $TO_BRANCH --head $FROM_BRANCH --state open --json number --jq '.[0].number' 2>/dev/null)
           if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
             echo "PR_EXISTS=true" >> $GITHUB_OUTPUT
             echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_OUTPUT
-            echo "✅ Found existing PR #$PR_NUMBER"
           else
             echo "PR_EXISTS=false" >> $GITHUB_OUTPUT
-            echo "ℹ️  No existing PR found"
           fi
 
       - name: Create new PR
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'false'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-
-          cat > /tmp/pr_body.txt <<'BODY'
-          ## Sync Repository Configuration
-
-          Repository changes from `develop` branch ready to apply.
-
-          **Repositories managed:** REPO_COUNT_VAR
-
-          ### Next Steps
-          - Review changes
-          - Approve and merge to main
-          - Apply workflow will run automatically
-
-          ---
-
-          **Note:** This PR is auto-generated. Edit title/description as needed.
-          BODY
-
-          sed -i.bak "s/REPO_COUNT_VAR/$REPO_COUNT/" /tmp/pr_body.txt
-
-          gh pr create \
-            --base main \
-            --head develop \
-            --title "chore: sync repos.tfvars (develop → main)" \
-            --body-file /tmp/pr_body.txt
-          echo "✅ PR created"
+          echo "## Repository Configuration Sync" > /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Summary" >> /tmp/body.txt
+          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Review Process" >> /tmp/body.txt
+          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
+          echo "2. Verify all changes are correct" >> /tmp/body.txt
+          echo "3. Approve and merge when ready" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Next Steps" >> /tmp/body.txt
+          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
+          gh pr create --base $TO_BRANCH --head $FROM_BRANCH --title "chore: sync repos.tfvars ($FROM_BRANCH → $TO_BRANCH)" --body-file /tmp/body.txt
 
       - name: Update existing PR
         if: steps.check_diff.outputs.CHANGES_EXIST == 'true' && steps.find_pr.outputs.PR_EXISTS == 'true'
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          FROM_BRANCH: ${{ inputs.from_branch }}
+          TO_BRANCH: ${{ inputs.to_branch }}
         run: |
           PR_NUMBER=${{ steps.find_pr.outputs.PR_NUMBER }}
           REPO_COUNT=$(grep -c '"[^"]*" = {' infra/repos.tfvars || echo 0)
-
-          cat > /tmp/pr_body.txt <<'BODY'
-          ## Sync Repository Configuration
-
-          Repository changes from `develop` branch ready to apply.
-
-          **Repositories managed:** REPO_COUNT_VAR
-
-          ### Next Steps
-          - Review changes
-          - Approve and merge to main
-          - Apply workflow will run automatically
-
-          ---
-
-          **Note:** This PR is auto-generated. Edit title/description as needed.
-          BODY
-
-          sed -i.bak "s/REPO_COUNT_VAR/$REPO_COUNT/" /tmp/pr_body.txt
-
-          gh pr edit $PR_NUMBER --body-file /tmp/pr_body.txt
-          echo "✅ PR updated (#$PR_NUMBER)"
+          echo "## Repository Configuration Sync" > /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "Changes from $FROM_BRANCH branch ready to merge to $TO_BRANCH." >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Summary" >> /tmp/body.txt
+          echo "- Repositories managed: $REPO_COUNT" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Review Process" >> /tmp/body.txt
+          echo "1. Review the terraform plan in comments" >> /tmp/body.txt
+          echo "2. Verify all changes are correct" >> /tmp/body.txt
+          echo "3. Approve and merge when ready" >> /tmp/body.txt
+          echo "" >> /tmp/body.txt
+          echo "### Next Steps" >> /tmp/body.txt
+          echo "Apply workflow will run automatically after merge." >> /tmp/body.txt
+          gh pr edit $PR_NUMBER --body-file /tmp/body.txt
