@@ -26,11 +26,11 @@ The system does this:
 
 ---
 
-## Option 2: Import Existing Repository
+## Option 2: Import Existing Repository (Then Use 3-Step Process)
 
 You already have a GitHub repository. Bring it into this system.
 
-### Import Step 1
+### Generate Config
 Go to GitHub Actions. Click **Import Repo** workflow.
 Enter:
 - Repository name
@@ -39,14 +39,18 @@ Enter:
 
 Click **Run workflow**.
 
-### Import Step 2
-Copy the terraform config from workflow output.
-Add it to `infra/default/repos.tfvars`.
-Commit and push to your branch.
+Workflow output shows terraform config. Copy it.
 
-### Import Step 3
-Now follow the 3-step process (above).
-This makes terraform manage your existing repository.
+### Add Config
+Add config block to `infra/default/repos.tfvars` on your branch.
+Commit and push.
+
+### Follow 3-Step Process
+Now use the normal 3-step process (above):
+1. Create PR
+2. Deploy
+
+That's it. Terraform now manages your existing repository.
 
 ---
 
