@@ -1,12 +1,20 @@
 # GitHub Repository Management
 
-Manage all repositories from one file: `infra/repos.tfvars`
+Manage all repositories from one file: `infra/default/repos.tfvars`
+
+Use GitHub Actions workflows. No manual git commands needed.
 
 ---
 
 ## How to Add a New Repository
 
-**Step 1:** Edit `infra/repos.tfvars`
+**Step 1:** Create branch
+
+Go to Actions. Run **Create Branch** workflow. Default branch is `develop`.
+
+**Step 2:** Edit `infra/default/repos.tfvars`
+
+Add new repository block:
 
 ```hcl
 repositories = {
@@ -20,127 +28,90 @@ repositories = {
 }
 ```
 
-**Step 2:** Commit and push
+Commit and push to your branch.
 
-```bash
-git add infra/repos.tfvars
-git commit -m "Add new-api repository"
-git push origin develop
-```
+**Step 3:** Create PR
 
-**Step 3:** Review and merge
+Go to Actions. Run **Create PR** workflow. A pull request appears.
 
-A pull request is created automatically. Review it. Merge it.
+**Step 4:** Deploy
 
-**Step 4:** Done
+Go to your PR. Click **Deploy** workflow. Select `full` mode.
 
-The repository appears on GitHub automatically.
+Workflow merges PR, deletes branch, and creates repository on GitHub automatically.
 
 ---
 
 ## How to Add Existing Repository
 
-**Step 1:** Run import workflow
+**Step 1:** Run Import Repo workflow
 
-Go to Actions tab. Select "Import Existing Repository". Fill in:
+Go to Actions. Run **Import Repo** workflow. Enter:
 - repo_name: `legacy-api`
 - repo_id: `789012345`
 - visibility: `private`
 
-Click "Run workflow".
+**Step 2:** Copy generated config
 
-**Step 2:** Copy the config
+Workflow output shows HCL config block. Copy it.
 
-The workflow shows a config block. Copy it.
+**Step 3:** Create branch and add config
 
-**Step 3:** Add to repos.tfvars
+Run **Create Branch** workflow. Edit `infra/default/repos.tfvars`. Paste config.
 
-```hcl
-repositories = {
-  "legacy-api" = {
-    name        = "legacy-api"
-    visibility  = "private"
-    description = "Imported repository"
-    teams       = ["platform-team"]
-  }
-}
-```
+**Step 4:** Create PR and Deploy
 
-**Step 4:** Commit and push
+Run **Create PR** workflow. Run **Deploy** workflow on resulting PR.
 
-```bash
-git add infra/repos.tfvars
-git commit -m "Import legacy-api"
-git push origin develop
-```
-
-**Step 5:** Merge PR
-
-A pull request is created. Merge it.
-
-**Step 6:** Done
-
-Repository is now managed.
+Workflow merges PR and brings existing repository under Terraform management.
 
 ---
 
 ## How to Add a New Team
 
-**Step 1:** Edit `infra/repos.tfvars`
+**Step 1:** Create branch
 
-Add the team to the `teams` field:
+Run **Create Branch** workflow.
+
+**Step 2:** Edit `infra/default/repos.tfvars`
+
+Add team to the `teams` field:
 
 ```hcl
 "api-server" = {
-  teams = ["backend-team", "new-team"]  ← Added new team
+  teams = ["backend-team", "new-team"]
 }
 ```
 
-**Step 2:** Commit and push
+**Step 3 & 4:** Create PR and Deploy
 
-```bash
-git add infra/repos.tfvars
-git commit -m "Add new-team to api-server"
-git push origin develop
-```
+Run **Create PR** workflow. Run **Deploy** workflow.
 
-**Step 3:** Merge PR
-
-A pull request is created. Review it. Merge it.
-
-**Step 4:** Done
-
-The team now has access to the repository.
+Team now has access to repository.
 
 ---
 
 ## How to Add Existing Team
 
-**Step 1:** Edit `infra/repos.tfvars`
+**Step 1:** Create branch
 
-Add the existing team to the `teams` field:
+Run **Create Branch** workflow.
+
+**Step 2:** Edit `infra/default/repos.tfvars`
+
+Add team to the `teams` field:
 
 ```hcl
 "api-server" = {
-  teams = ["backend-team", "existing-team"]  ← Added existing team
+  teams = ["backend-team", "existing-team"]
 }
 ```
 
-**Step 2:** Commit and push
+**Step 3 & 4:** Create PR and Deploy
 
-```bash
-git add infra/repos.tfvars
-git commit -m "Add existing-team to api-server"
-git push origin develop
-```
+Run **Create PR** workflow. Run **Deploy** workflow.
 
-**Step 3:** Merge PR
-
-A pull request is created. Review it. Merge it.
-
-**Step 4:** Done
-
-The team now has access to the repository.
+Team now has access to repository.
 
 ---
 
@@ -148,21 +119,20 @@ The team now has access to the repository.
 
 For detailed information, read:
 
-- **System overview:** `conf/repository-management/ARCHITECTURE.md`
-- **Design philosophy:** `conf/repository-management/DESIGN_PRINCIPLES.md`
-- **Step-by-step guides:** `conf/repository-management/SCENARIOS.md`
-- **Import workflow:** `conf/IMPORT_WORKFLOW.md`
+- **Quick start:** `conf/QUICKSTART.md`
+- **Workflow reference:** `conf/WORKFLOWS.md`
+- **Architecture:** `conf/WORKFLOW_ARCHITECTURE.md`
 
 ---
 
 ## Quick Reference
 
-| Action | File | Location |
-|--------|------|----------|
-| Add new repo | `repos.tfvars` | `infra/repos.tfvars` |
-| Import repo | Import workflow | Actions tab |
-| Add team | `repos.tfvars` | `infra/repos.tfvars` |
-| Remove repo | Edit `repos.tfvars` | Remove the repo entry |
+| Action | Workflow | Then Edit |
+|--------|----------|-----------|
+| Add new repo | Create Branch → Create PR → Deploy | `infra/default/repos.tfvars` |
+| Import repo | Import Repo → Create Branch → Create PR → Deploy | `infra/default/repos.tfvars` |
+| Add team | Create Branch → Create PR → Deploy | `infra/default/repos.tfvars` |
+| Remove repo | Create Branch → Create PR → Deploy | Delete entry in `repos.tfvars` |
 
 ---
 
