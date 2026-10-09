@@ -38,8 +38,8 @@ repositories = {
   # }
 
   # Add repositories here
-  "api-service" = {
-    name        = "api-service"
+  "core-api" = {
+    name        = "core-api"
     visibility  = "private"
     description = "Core API service with automated template initialization"
     teams       = ["backend-team"]
