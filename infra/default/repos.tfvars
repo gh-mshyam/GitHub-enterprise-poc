@@ -38,12 +38,12 @@ repositories = {
   # }
 
   # Add repositories here
-  "user-service" = {
-    name        = "user-service"
+  "backend-api" = {
+    name        = "backend-api"
     visibility  = "private"
-    description = "User service with template initialization"
+    description = "Backend API service"
     teams       = ["backend-team"]
-    topics      = ["service", "users"]
+    topics      = ["api", "backend"]
   }
 
 }
