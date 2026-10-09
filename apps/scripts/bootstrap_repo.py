@@ -12,6 +12,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -60,7 +61,7 @@ class RepositoryBootstrapper:
             self._cleanup()
 
     def _clone_repo(self):
-        """Clone repository to temp workspace"""
+        """Clone repository to temp workspace with retry logic"""
         print(f"📥 Cloning repository...")
 
         if self.github_token:
@@ -68,14 +69,28 @@ class RepositoryBootstrapper:
         else:
             repo_url = f"https://github.com/{self.repo_owner}/{self.repo_name}.git"
 
-        result = subprocess.run(
-            ["git", "clone", repo_url, self.temp_dir],
-            capture_output=True,
-            text=True
-        )
+        # Retry logic: newly created repos may need a moment to replicate across GitHub's servers
+        max_retries = 5
+        retry_delay = 2  # Start with 2 seconds
 
-        if result.returncode != 0:
-            raise Exception(f"Failed to clone repo: {result.stderr}")
+        for attempt in range(max_retries):
+            result = subprocess.run(
+                ["git", "clone", repo_url, self.temp_dir],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                print(f"   ✓ Clone successful")
+                return
+
+            # If not the last attempt, retry with backoff
+            if attempt < max_retries - 1:
+                print(f"   ⏳ Clone failed (attempt {attempt + 1}/{max_retries}), retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                raise Exception(f"Failed to clone repo after {max_retries} attempts: {result.stderr}")
 
     def _copy_template_files(self):
         """Copy template files from source to repo"""

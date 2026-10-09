@@ -36,18 +36,17 @@ resource "github_repository_vulnerability_alerts" "this" {
 }
 
 # Bootstrap repository with template files
-# NOTE: Temporarily disabled - needs fix for GitHub account rate limiting/access issues
-# resource "null_resource" "bootstrap_template" {
-#   depends_on = [github_repository.this]
-#
-#   provisioner "local-exec" {
-#     command = "python3 ../../apps/scripts/bootstrap_repo.py ${var.name} ${var.github_owner}"
-#
-#     environment = {
-#       GITHUB_TOKEN = var.github_token
-#     }
-#   }
-# }
+resource "null_resource" "bootstrap_template" {
+  depends_on = [github_repository.this]
+
+  provisioner "local-exec" {
+    command = "python3 ../../apps/scripts/bootstrap_repo.py ${var.name} ${var.github_owner}"
+
+    environment = {
+      GITHUB_TOKEN = var.github_token
+    }
+  }
+}
 
 # Basic branch protection for main branch
 # NOTE: Requires GitHub Pro or public repository. Disabled for free accounts.
