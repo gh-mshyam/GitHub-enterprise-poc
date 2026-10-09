@@ -44,7 +44,7 @@ jobs:
         if: inputs.mode == 'full'
         shell: bash
         env:
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
         run: |
           cd infra/default
@@ -161,9 +161,9 @@ jobs:
 
       - name: Terraform apply
         shell: bash
-        # TODO: Replace secrets.GITHUB_TOKEN with AWS Secrets Manager retrieval (use OIDC role assumption)
+        # TODO: Replace secrets.GH_PAT with AWS Secrets Manager retrieval (use OIDC role assumption)
         env:
-          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_token: ${{ secrets.GH_PAT }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
         run: |
           cd infra/default

@@ -38,20 +38,12 @@ repositories = {
   # }
 
   # Add repositories here
-  "test-repo" = {
-    name        = "test-repo"
+  "api-service" = {
+    name        = "api-service"
     visibility  = "private"
-    description = "Test repository for system validation"
+    description = "Core API service with automated template initialization"
     teams       = ["backend-team"]
-    topics      = ["test"]
-  }
-
-  "demo-repo" = {
-    name        = "demo-repo"
-    visibility  = "private"
-    description = "Demo repository created via new deploy workflow"
-    teams       = ["backend-team"]
-    topics      = ["demo", "workflow-test"]
+    topics      = ["api", "service"]
   }
 
 }
