@@ -37,7 +37,7 @@ resource "null_resource" "bootstrap_template" {
   depends_on = [github_repository.this]
 
   provisioner "local-exec" {
-    command = "python3 ../apps/scripts/bootstrap_repo.py ${var.name} ${var.github_owner}"
+    command = "python3 ../../apps/scripts/bootstrap_repo.py ${var.name} ${var.github_owner}"
 
     environment = {
       GITHUB_TOKEN = var.github_token
@@ -46,10 +46,11 @@ resource "null_resource" "bootstrap_template" {
 }
 
 # Basic branch protection for main branch
-resource "github_branch_protection" "main" {
-  repository_id = github_repository.this.id
-  pattern       = "main"
-
-  enforce_admins            = false
-  require_conversation_resolution = true
-}
+# NOTE: Requires GitHub Pro or public repository. Disabled for free accounts.
+# resource "github_branch_protection" "main" {
+#   repository_id = github_repository.this.id
+#   pattern       = "main"
+#
+#   enforce_admins            = false
+#   require_conversation_resolution = true
+# }
