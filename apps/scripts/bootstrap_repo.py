@@ -44,10 +44,7 @@ class RepositoryBootstrapper:
             # Step 3: Copy template files
             self._copy_template_files()
 
-            # Step 4: Create metadata
-            self._create_metadata()
-
-            # Step 5: Commit and push
+            # Step 4: Commit and push
             self._commit_and_push()
 
             print(f"✅ Bootstrap complete: {self.repo_name}")
@@ -118,25 +115,6 @@ class RepositoryBootstrapper:
                 print(f"   ✓ {rel_path}")
 
         print(f"   Copied {file_count} files")
-
-    def _create_metadata(self):
-        """Create .repo-meta.json with template metadata"""
-        print(f"📝 Creating template metadata...")
-
-        metadata = {
-            "template_version": "repo-scaffold",
-            "initialized_at": datetime.now().isoformat(),
-            "bootstrap_script_version": "1.0",
-            "repository_name": self.repo_name,
-            "repository_owner": self.repo_owner
-        }
-
-        metadata_file = Path(self.temp_dir) / ".repo-meta.json"
-
-        with open(metadata_file, "w") as f:
-            json.dump(metadata, f, indent=2)
-
-        print(f"   Created .repo-meta.json")
 
     def _commit_and_push(self):
         """Commit template files and push to remote"""
