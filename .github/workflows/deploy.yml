@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Pull request number to deploy'
-        required: true
-        type: number
+        description: 'Pull request number to deploy (leave empty to deploy from main)'
+        required: false
+        type: string
       mode:
         description: 'Deploy mode'
         required: true
@@ -126,7 +126,7 @@ jobs:
           PYTHON_EOF
 
       - name: Post plan to PR
-        if: inputs.mode == 'full'
+        if: inputs.mode == 'full' && inputs.pr_number != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -137,7 +137,7 @@ jobs:
           echo "✅ Plan posted to PR"
 
       - name: Merge PR
-        if: inputs.mode == 'full'
+        if: inputs.mode == 'full' && inputs.pr_number != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -147,17 +147,26 @@ jobs:
           echo "✅ PR merged and branch deleted"
 
       - name: Wait for merge
-        if: inputs.mode == 'full'
+        if: inputs.mode == 'full' && inputs.pr_number != ''
         shell: bash
         run: sleep 2
 
       - name: Checkout main after merge
-        if: inputs.mode == 'full'
+        if: inputs.mode == 'full' && inputs.pr_number != ''
         shell: bash
         run: |
           git fetch origin
           git checkout main
           git reset --hard origin/main
+
+      - name: Ensure on main branch
+        if: inputs.mode == 'full' && inputs.pr_number == ''
+        shell: bash
+        run: |
+          git fetch origin
+          git checkout main
+          git reset --hard origin/main
+          echo "✅ Checked out main branch"
 
       - name: Terraform apply
         shell: bash
@@ -172,7 +181,7 @@ jobs:
           echo "✅ Terraform apply completed"
 
       - name: Post success comment
-        if: inputs.mode == 'full' && success()
+        if: inputs.mode == 'full' && success() && inputs.pr_number != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -200,6 +209,27 @@ jobs:
           SUMMARY=$(cat success_summary.txt)
           gh pr comment $PR_NUMBER --body "$SUMMARY"
           echo "✅ Success comment posted"
+
+      - name: Display success summary
+        if: inputs.mode == 'full' && success() && inputs.pr_number == ''
+        shell: bash
+        run: |
+          python3 << 'PYTHON_EOF'
+          import re
+          from pathlib import Path
+
+          tfvars_content = Path("infra/default/repos.tfvars").read_text()
+          repo_ids = re.findall(r'"([^"]+)"\s*=\s*\{', tfvars_content)
+
+          summary = "## ✅ Deploy Successful (Direct Main Execution)\n\n"
+          summary += "**Terraform apply completed successfully**\n"
+          summary += f"**Repositories managed:** {len(repo_ids)}\n"
+
+          for repo_id in repo_ids:
+            summary += f"- `{repo_id}`\n"
+
+          print(summary)
+          PYTHON_EOF
 
       - name: Post failure comment
         if: inputs.mode == 'full' && failure()
