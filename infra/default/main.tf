@@ -50,3 +50,19 @@ module "teams" {
   members      = each.value.members
   repositories = each.value.repositories
 }
+
+# Template sync for existing repositories
+# This syncs repo-scaffold template files to managed repositories
+module "template_sync" {
+  source = "./modules/template-sync"
+
+  # Sync backend-api as test case
+  repo_name    = "backend-api"
+  repo_owner   = var.github_owner
+  github_token = var.github_token
+  template_dir = "${path.module}/../../.github/templates/repo-scaffold"
+  # Use file hash to trigger re-sync when template changes
+  template_hash = filemd5("${path.module}/../../.github/templates/repo-scaffold/README.md")
+
+  depends_on = [module.repository]
+}
