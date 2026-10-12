@@ -53,6 +53,12 @@ module "teams" {
 
 # Template sync for existing repositories
 # This syncs repo-scaffold template files to managed repositories
+locals {
+  # Hash all template files to trigger re-sync on any template change
+  template_files = fileset("${path.module}/../../.github/templates/repo-scaffold", "**/*")
+  template_hash  = md5(join(",", [for f in local.template_files : filemd5("${path.module}/../../.github/templates/repo-scaffold/${f}")]))
+}
+
 module "template_sync" {
   source = "./modules/template-sync"
 
@@ -60,9 +66,10 @@ module "template_sync" {
   repo_name    = "backend-api"
   repo_owner   = var.github_owner
   github_token = var.github_token
-  template_dir = "${path.module}/../../.github/templates/repo-scaffold"
-  # Use file hash to trigger re-sync when template changes
-  template_hash = filemd5("${path.module}/../../.github/templates/repo-scaffold/README.md")
+  # Use absolute path for template directory
+  template_dir = abspath("${path.module}/../../.github/templates/repo-scaffold")
+  # Hash of all template files to trigger re-sync on ANY template change
+  template_hash = local.template_hash
 
   depends_on = [module.repository]
 }

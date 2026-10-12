@@ -38,12 +38,7 @@ repositories = {
   # }
 
   # Add repositories here
-  "backend-api" = {
-    name        = "backend-api"
-    visibility  = "private"
-    description = "Backend API service"
-    teams       = ["backend-team"]
-    topics      = ["api", "backend"]
-  }
+  # NOTE: backend-api is now managed by template-sync module for template updates
+  # It was created via previous deployments and is now maintained via terraform apply
 
 }

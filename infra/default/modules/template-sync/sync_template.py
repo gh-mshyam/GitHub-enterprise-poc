@@ -22,6 +22,11 @@ class TemplateSync:
         self.sync_message = os.environ.get("SYNC_MESSAGE", "chore: sync template")
         self.temp_dir = None
 
+        # Debug: print environment
+        if not self.template_dir:
+            print(f"⚠️  DEBUG: TEMPLATE_DIR not set in environment")
+            print(f"   Available env vars: {list(os.environ.keys())[:10]}...")
+
     def run(self):
         """Execute template sync"""
         try:
