@@ -21,7 +21,6 @@
 #   5. Workflow removes repository
 
 repositories = {
-
   # Example: Create new repository
   # "api-server" = {
   #   name        = "api-server"
@@ -38,7 +37,12 @@ repositories = {
   # }
 
   # Add repositories here
-  # NOTE: backend-api is now managed by template-sync module for template updates
-  # It was created via previous deployments and is now maintained via terraform apply
+  "sample-repo" = {
+    name = "sample-repo"
+    visibility = "private"
+    description = "sample description"
+    teams = ["sample-team"]
+  }
+
 
 }
