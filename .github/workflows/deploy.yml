@@ -168,6 +168,13 @@ jobs:
           git reset --hard origin/main
           echo "✅ Checked out main branch"
 
+      - name: Reinitialize Terraform
+        shell: bash
+        run: |
+          cd infra/default
+          rm -rf .terraform
+          terraform init -upgrade=false
+
       - name: Terraform apply
         shell: bash
         # TODO: Replace secrets.GH_PAT with AWS Secrets Manager retrieval (use OIDC role assumption)
